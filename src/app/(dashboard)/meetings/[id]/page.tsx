@@ -1,18 +1,16 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
 import { redirect, notFound } from 'next/navigation'
-import { getUserRole, hasPermission } from '@/lib/auth/rbac'
+import sql from '@/lib/db'
+import { hasPermission } from '@/lib/auth/rbac'
 import MeetingForm from '@/components/meetings/MeetingForm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { MEETING_STATUSES } from '@/constants'
-import type { Meeting, User, Visitor, MeetingStatus } from '@/types'
+import type { Meeting, User, Visitor, MeetingStatus, UserRole } from '@/types'
 
 const statusVariant: Record<MeetingStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  scheduled: 'outline',
-  in_progress: 'default',
-  completed: 'secondary',
-  cancelled: 'destructive',
+  scheduled: 'outline', in_progress: 'default', completed: 'secondary', cancelled: 'destructive',
 }
 
 interface PageProps {
@@ -21,30 +19,35 @@ interface PageProps {
 
 export default async function MeetingDetailPage({ params }: PageProps) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user: authUser } } = await supabase.auth.getUser()
-  if (!authUser) redirect('/login')
+  const session = await auth()
+  if (!session?.user?.id) redirect('/login')
 
-  const { data: meeting } = await supabase
-    .from('meetings')
-    .select(`*, host:host_id(id, name, email, department), visitor:visitor_id(id, name, company)`)
-    .eq('id', id)
-    .single()
-
+  const [meeting] = await sql`
+    SELECT m.*,
+      json_build_object('id', u.id, 'name', u.name, 'email', u.email, 'department', u.department) as host,
+      CASE WHEN v.id IS NOT NULL
+        THEN json_build_object('id', v.id, 'name', v.name, 'company', v.company)
+        ELSE null END as visitor
+    FROM meetings m
+    LEFT JOIN users u ON m.host_id = u.id
+    LEFT JOIN visitors v ON m.visitor_id = v.id
+    WHERE m.id = ${id}
+  `
   if (!meeting) notFound()
 
-  const role = await getUserRole(authUser.id)
-  if (!role) redirect('/login')
-
+  const role = session.user.role as UserRole
   const canEdit =
     hasPermission(role, 'meetings.update.all') ||
     (hasPermission(role, 'meetings.update.own') &&
-      (meeting.host_id === authUser.id || meeting.created_by === authUser.id))
+      (meeting.host_id === session.user.id || meeting.created_by === session.user.id))
 
-  const [{ data: hosts }, { data: visitors }] = await Promise.all([
-    supabase.from('users').select('id, name, email').eq('is_active', true).order('name'),
-    supabase.from('visitors').select('id, name, company')
-      .in('status', ['scheduled', 'arrived']).order('name'),
+  const [hosts, visitors] = await Promise.all([
+    sql<{ id: string; name: string | null; email: string }[]>`
+      SELECT id, name, email FROM users WHERE is_active = true ORDER BY name
+    `,
+    sql<{ id: string; name: string; company: string | null }[]>`
+      SELECT id, name, company FROM visitors WHERE status IN ('scheduled', 'arrived') ORDER BY name
+    `,
   ])
 
   const m = meeting as unknown as Meeting & {
@@ -74,33 +77,19 @@ export default async function MeetingDetailPage({ params }: PageProps) {
         <div className="lg:col-span-1 bg-white rounded-lg border border-gray-200 p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">미팅 정보</h2>
           <dl className="space-y-3 text-sm">
-            <div>
-              <dt className="text-gray-500">담당자</dt>
-              <dd className="font-medium mt-0.5">{m.host?.name ?? '—'}</dd>
-            </div>
+            <div><dt className="text-gray-500">담당자</dt><dd className="font-medium mt-0.5">{m.host?.name ?? '—'}</dd></div>
             {m.visitor && (
               <div>
                 <dt className="text-gray-500">방문객</dt>
-                <dd className="font-medium mt-0.5">
-                  {m.visitor.name}{m.visitor.company ? ` (${m.visitor.company})` : ''}
-                </dd>
+                <dd className="font-medium mt-0.5">{m.visitor.name}{m.visitor.company ? ` (${m.visitor.company})` : ''}</dd>
               </div>
             )}
-            <div>
-              <dt className="text-gray-500">소요 시간</dt>
-              <dd className="font-medium mt-0.5">{m.duration_minutes}분</dd>
-            </div>
+            <div><dt className="text-gray-500">소요 시간</dt><dd className="font-medium mt-0.5">{m.duration_minutes}분</dd></div>
             {m.description && (
-              <div>
-                <dt className="text-gray-500">설명</dt>
-                <dd className="mt-0.5 whitespace-pre-wrap">{m.description}</dd>
-              </div>
+              <div><dt className="text-gray-500">설명</dt><dd className="mt-0.5 whitespace-pre-wrap">{m.description}</dd></div>
             )}
             {m.notes && (
-              <div>
-                <dt className="text-gray-500">메모</dt>
-                <dd className="mt-0.5 whitespace-pre-wrap">{m.notes}</dd>
-              </div>
+              <div><dt className="text-gray-500">메모</dt><dd className="mt-0.5 whitespace-pre-wrap">{m.notes}</dd></div>
             )}
           </dl>
         </div>
@@ -108,12 +97,7 @@ export default async function MeetingDetailPage({ params }: PageProps) {
         {canEdit && (
           <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="font-semibold text-gray-900 mb-4">정보 수정</h2>
-            <MeetingForm
-              meeting={m}
-              hosts={hosts ?? []}
-              visitors={visitors ?? []}
-              currentUserId={authUser.id}
-            />
+            <MeetingForm meeting={m} hosts={hosts} visitors={visitors} currentUserId={session.user.id} />
           </div>
         )}
       </div>

@@ -1,26 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 
 export default function LoginForm() {
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
 
-  async function signInWithGoogle() {
+  async function handleGoogleSignIn() {
     setLoading(true)
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-      },
-    })
+    await signIn('google', { callbackUrl: '/' })
   }
 
   return (
     <Button
-      onClick={signInWithGoogle}
+      onClick={handleGoogleSignIn}
       disabled={loading}
       className="w-full"
       size="lg"

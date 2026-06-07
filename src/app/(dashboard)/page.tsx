@@ -1,49 +1,58 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
+import { redirect } from 'next/navigation'
+import sql from '@/lib/db'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, CalendarCheck, UserCheck, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { VISITOR_STATUSES, VISITOR_PURPOSES } from '@/constants'
-import type { Visitor, Meeting } from '@/types'
+import type { VisitorPurpose, VisitorStatus } from '@/types'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const today = new Date()
-  const todayStart = new Date(today.setHours(0, 0, 0, 0)).toISOString()
-  const todayEnd = new Date(today.setHours(23, 59, 59, 999)).toISOString()
+  const session = await auth()
+  if (!session?.user?.id) redirect('/login')
+
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayEnd = new Date()
+  todayEnd.setHours(23, 59, 59, 999)
 
   const [
-    { count: totalVisitors },
-    { count: todayVisitors },
-    { count: arrivedVisitors },
-    { count: scheduledMeetings },
-    { data: recentVisitors },
-    { data: upcomingMeetings },
+    [{ count: totalVisitors }],
+    [{ count: todayVisitors }],
+    [{ count: arrivedVisitors }],
+    [{ count: scheduledMeetings }],
+    recentVisitors,
+    upcomingMeetings,
   ] = await Promise.all([
-    supabase.from('visitors').select('*', { count: 'exact', head: true }),
-    supabase.from('visitors').select('*', { count: 'exact', head: true })
-      .gte('scheduled_at', todayStart).lte('scheduled_at', todayEnd),
-    supabase.from('visitors').select('*', { count: 'exact', head: true })
-      .eq('status', 'arrived'),
-    supabase.from('meetings').select('*', { count: 'exact', head: true })
-      .eq('status', 'scheduled').gte('scheduled_at', new Date().toISOString()),
-    supabase.from('visitors')
-      .select('id, name, company, status, purpose, scheduled_at, host:host_id(name)')
-      .order('created_at', { ascending: false })
-      .limit(5),
-    supabase.from('meetings')
-      .select('id, title, scheduled_at, location, host:host_id(name)')
-      .eq('status', 'scheduled')
-      .gte('scheduled_at', new Date().toISOString())
-      .order('scheduled_at', { ascending: true })
-      .limit(5),
+    sql<{ count: string }[]>`SELECT COUNT(*)::text as count FROM visitors`,
+    sql<{ count: string }[]>`
+      SELECT COUNT(*)::text as count FROM visitors
+      WHERE scheduled_at BETWEEN ${todayStart.toISOString()} AND ${todayEnd.toISOString()}
+    `,
+    sql<{ count: string }[]>`SELECT COUNT(*)::text as count FROM visitors WHERE status = 'arrived'`,
+    sql<{ count: string }[]>`
+      SELECT COUNT(*)::text as count FROM meetings
+      WHERE status = 'scheduled' AND scheduled_at > now()
+    `,
+    sql<{ id: string; name: string; company: string | null; status: VisitorStatus; purpose: VisitorPurpose }[]>`
+      SELECT v.id, v.name, v.company, v.status, v.purpose
+      FROM visitors v
+      ORDER BY v.created_at DESC LIMIT 5
+    `,
+    sql<{ id: string; title: string; scheduled_at: string; location: string | null }[]>`
+      SELECT id, title, scheduled_at, location
+      FROM meetings
+      WHERE status = 'scheduled' AND scheduled_at > now()
+      ORDER BY scheduled_at ASC LIMIT 5
+    `,
   ])
 
   const stats = [
-    { label: '전체 방문객', value: totalVisitors ?? 0, icon: Users, color: 'text-blue-600' },
-    { label: '오늘 방문객', value: todayVisitors ?? 0, icon: CalendarCheck, color: 'text-green-600' },
-    { label: '현재 입장', value: arrivedVisitors ?? 0, icon: UserCheck, color: 'text-orange-600' },
-    { label: '예정 미팅', value: scheduledMeetings ?? 0, icon: Clock, color: 'text-purple-600' },
+    { label: '전체 방문객', value: parseInt(totalVisitors), icon: Users, color: 'text-blue-600' },
+    { label: '오늘 방문객', value: parseInt(todayVisitors), icon: CalendarCheck, color: 'text-green-600' },
+    { label: '현재 입장', value: parseInt(arrivedVisitors), icon: UserCheck, color: 'text-orange-600' },
+    { label: '예정 미팅', value: parseInt(scheduledMeetings), icon: Clock, color: 'text-purple-600' },
   ]
 
   return (
@@ -55,7 +64,6 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* 통계 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
@@ -73,7 +81,6 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 최근 방문객 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">최근 방문객</CardTitle>
@@ -82,20 +89,17 @@ export default async function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {recentVisitors && recentVisitors.length > 0 ? (
+            {recentVisitors.length > 0 ? (
               <ul className="space-y-3">
-                {recentVisitors.map((v) => {
-                  const visitor = v as unknown as Visitor & { host: { name: string } | null }
-                  return (
-                    <li key={v.id} className="flex items-center justify-between text-sm">
-                      <div>
-                        <p className="font-medium text-gray-900">{v.name}</p>
-                        <p className="text-xs text-gray-500">{v.company ?? '—'} · {VISITOR_PURPOSES[visitor.purpose]}</p>
-                      </div>
-                      <span className="text-xs text-gray-500">{VISITOR_STATUSES[visitor.status]}</span>
-                    </li>
-                  )
-                })}
+                {recentVisitors.map((v) => (
+                  <li key={v.id} className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-medium text-gray-900">{v.name}</p>
+                      <p className="text-xs text-gray-500">{v.company ?? '—'} · {VISITOR_PURPOSES[v.purpose]}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">{VISITOR_STATUSES[v.status]}</span>
+                  </li>
+                ))}
               </ul>
             ) : (
               <p className="text-sm text-gray-500 text-center py-4">등록된 방문객이 없습니다.</p>
@@ -103,7 +107,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* 예정 미팅 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">예정 미팅</CardTitle>
@@ -112,20 +115,17 @@ export default async function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {upcomingMeetings && upcomingMeetings.length > 0 ? (
+            {upcomingMeetings.length > 0 ? (
               <ul className="space-y-3">
-                {upcomingMeetings.map((m) => {
-                  const meeting = m as unknown as Meeting & { host: { name: string } | null }
-                  return (
-                    <li key={m.id} className="text-sm">
-                      <p className="font-medium text-gray-900">{m.title}</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(m.scheduled_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        {m.location ? ` · ${m.location}` : ''}
-                      </p>
-                    </li>
-                  )
-                })}
+                {upcomingMeetings.map((m) => (
+                  <li key={m.id} className="text-sm">
+                    <p className="font-medium text-gray-900">{m.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(m.scheduled_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {m.location ? ` · ${m.location}` : ''}
+                    </p>
+                  </li>
+                ))}
               </ul>
             ) : (
               <p className="text-sm text-gray-500 text-center py-4">예정된 미팅이 없습니다.</p>

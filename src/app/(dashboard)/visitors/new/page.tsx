@@ -1,17 +1,15 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import sql from '@/lib/db'
 import VisitorForm from '@/components/visitors/VisitorForm'
 
 export default async function NewVisitorPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const session = await auth()
+  if (!session?.user?.id) redirect('/login')
 
-  const { data: hosts } = await supabase
-    .from('users')
-    .select('id, name, email')
-    .eq('is_active', true)
-    .order('name')
+  const hosts = await sql<{ id: string; name: string | null; email: string }[]>`
+    SELECT id, name, email FROM users WHERE is_active = true ORDER BY name
+  `
 
   return (
     <div className="space-y-6">
@@ -20,10 +18,7 @@ export default async function NewVisitorPage() {
         <p className="text-sm text-gray-500 mt-1">새 방문객 정보를 입력하세요.</p>
       </div>
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <VisitorForm
-          hosts={hosts ?? []}
-          currentUserId={user.id}
-        />
+        <VisitorForm hosts={hosts} currentUserId={session.user.id} />
       </div>
     </div>
   )

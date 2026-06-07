@@ -1,7 +1,6 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -13,15 +12,6 @@ import { ROLES } from '@/constants'
 import type { User } from '@/types'
 
 export default function Header({ user }: { user: User }) {
-  const router = useRouter()
-  const supabase = createClient()
-
-  async function signOut() {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
-
   const initials = user.name
     ? user.name.slice(0, 2).toUpperCase()
     : user.email.slice(0, 2).toUpperCase()
@@ -40,7 +30,10 @@ export default function Header({ user }: { user: User }) {
           </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={signOut} className="cursor-pointer">
+          <DropdownMenuItem
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="cursor-pointer"
+          >
             로그아웃
           </DropdownMenuItem>
         </DropdownMenuContent>

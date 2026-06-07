@@ -1,13 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
 import { redirect, notFound } from 'next/navigation'
-import { getUserRole } from '@/lib/auth/rbac'
+import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import VisitorForm from '@/components/visitors/VisitorForm'
 import VisitorStatusBadge from '@/components/visitors/VisitorStatusBadge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { VISITOR_PURPOSES } from '@/constants'
-import type { Visitor, User } from '@/types'
+import type { Visitor, User, UserRole } from '@/types'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -15,31 +15,29 @@ interface PageProps {
 
 export default async function VisitorDetailPage({ params }: PageProps) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user: authUser } } = await supabase.auth.getUser()
-  if (!authUser) redirect('/login')
+  const session = await auth()
+  if (!session?.user?.id) redirect('/login')
 
-  const { data: visitor } = await supabase
-    .from('visitors')
-    .select(`*, host:host_id(id, name, email, department), creator:created_by(id, name)`)
-    .eq('id', id)
-    .single()
-
+  const [visitor] = await sql`
+    SELECT v.*,
+      json_build_object('id', u1.id, 'name', u1.name, 'email', u1.email, 'department', u1.department) as host,
+      json_build_object('id', u2.id, 'name', u2.name) as creator
+    FROM visitors v
+    LEFT JOIN users u1 ON v.host_id = u1.id
+    LEFT JOIN users u2 ON v.created_by = u2.id
+    WHERE v.id = ${id}
+  `
   if (!visitor) notFound()
 
-  const role = await getUserRole(authUser.id)
-  if (!role) redirect('/login')
-
+  const role = session.user.role as UserRole
   const canEdit =
     hasPermission(role, 'visitors.update.all') ||
     (hasPermission(role, 'visitors.update.own') &&
-      (visitor.host_id === authUser.id || visitor.created_by === authUser.id))
+      (visitor.host_id === session.user.id || visitor.created_by === session.user.id))
 
-  const { data: hosts } = await supabase
-    .from('users')
-    .select('id, name, email')
-    .eq('is_active', true)
-    .order('name')
+  const hosts = await sql<{ id: string; name: string | null; email: string }[]>`
+    SELECT id, name, email FROM users WHERE is_active = true ORDER BY name
+  `
 
   const v = visitor as unknown as Visitor & { host: Pick<User, 'id' | 'name' | 'email' | 'department'> | null }
 
@@ -52,8 +50,7 @@ export default async function VisitorDetailPage({ params }: PageProps) {
             <VisitorStatusBadge status={v.status} />
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            {VISITOR_PURPOSES[v.purpose]}
-            {v.company ? ` · ${v.company}` : ''}
+            {VISITOR_PURPOSES[v.purpose]}{v.company ? ` · ${v.company}` : ''}
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -66,50 +63,20 @@ export default async function VisitorDetailPage({ params }: PageProps) {
           <h2 className="font-semibold text-gray-900">방문객 정보</h2>
           <dl className="space-y-3 text-sm">
             {v.phone && (
-              <div>
-                <dt className="text-gray-500">연락처</dt>
-                <dd className="font-medium mt-0.5">{v.phone}</dd>
-              </div>
+              <div><dt className="text-gray-500">연락처</dt><dd className="font-medium mt-0.5">{v.phone}</dd></div>
             )}
             {v.email && (
-              <div>
-                <dt className="text-gray-500">이메일</dt>
-                <dd className="font-medium mt-0.5">{v.email}</dd>
-              </div>
+              <div><dt className="text-gray-500">이메일</dt><dd className="font-medium mt-0.5">{v.email}</dd></div>
             )}
-            <div>
-              <dt className="text-gray-500">담당자</dt>
-              <dd className="font-medium mt-0.5">{v.host?.name ?? '—'}</dd>
-            </div>
+            <div><dt className="text-gray-500">담당자</dt><dd className="font-medium mt-0.5">{v.host?.name ?? '—'}</dd></div>
             {v.scheduled_at && (
               <div>
                 <dt className="text-gray-500">방문 예정</dt>
-                <dd className="font-medium mt-0.5">
-                  {new Date(v.scheduled_at).toLocaleString('ko-KR')}
-                </dd>
-              </div>
-            )}
-            {v.arrived_at && (
-              <div>
-                <dt className="text-gray-500">입장 시간</dt>
-                <dd className="font-medium mt-0.5">
-                  {new Date(v.arrived_at).toLocaleString('ko-KR')}
-                </dd>
-              </div>
-            )}
-            {v.departed_at && (
-              <div>
-                <dt className="text-gray-500">퇴장 시간</dt>
-                <dd className="font-medium mt-0.5">
-                  {new Date(v.departed_at).toLocaleString('ko-KR')}
-                </dd>
+                <dd className="font-medium mt-0.5">{new Date(v.scheduled_at).toLocaleString('ko-KR')}</dd>
               </div>
             )}
             {v.notes && (
-              <div>
-                <dt className="text-gray-500">메모</dt>
-                <dd className="mt-0.5 whitespace-pre-wrap">{v.notes}</dd>
-              </div>
+              <div><dt className="text-gray-500">메모</dt><dd className="mt-0.5 whitespace-pre-wrap">{v.notes}</dd></div>
             )}
           </dl>
         </div>
@@ -117,11 +84,7 @@ export default async function VisitorDetailPage({ params }: PageProps) {
         {canEdit && (
           <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="font-semibold text-gray-900 mb-4">정보 수정</h2>
-            <VisitorForm
-              visitor={v}
-              hosts={hosts ?? []}
-              currentUserId={authUser.id}
-            />
+            <VisitorForm visitor={v} hosts={hosts} currentUserId={session.user.id} />
           </div>
         )}
       </div>

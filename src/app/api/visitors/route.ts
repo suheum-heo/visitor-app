@@ -1,12 +1,13 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { checkPermission } from '@/lib/auth/rbac'
+import { auth } from '@/auth'
+import sql from '@/lib/db'
+import { hasPermission } from '@/lib/auth/rbac'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { UserRole } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
@@ -15,23 +16,43 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') ?? '20')
     const offset = (page - 1) * limit
 
-    let query = supabase
-      .from('visitors')
-      .select(`
-        *,
-        host:host_id(id, name, email, department),
-        creator:created_by(id, name)
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+    const role = session.user.role as UserRole
+    const canReadAll = hasPermission(role, 'visitors.read.all')
+    const userId = session.user.id
 
-    if (status) query = query.eq('status', status)
-    if (search) query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,email.ilike.%${search}%`)
+    const rows = await sql`
+      SELECT
+        v.*,
+        json_build_object('id', u1.id, 'name', u1.name, 'email', u1.email, 'department', u1.department) as host,
+        json_build_object('id', u2.id, 'name', u2.name) as creator
+      FROM visitors v
+      LEFT JOIN users u1 ON v.host_id = u1.id
+      LEFT JOIN users u2 ON v.created_by = u2.id
+      WHERE
+        (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
+        AND (${status ?? null}::text IS NULL OR v.status = ${status ?? null}::text)
+        AND (
+          ${search ?? null}::text IS NULL OR
+          v.name ILIKE ${'%' + (search ?? '') + '%'} OR
+          v.company ILIKE ${'%' + (search ?? '') + '%'}
+        )
+      ORDER BY v.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `
 
-    const { data, error, count } = await query
-    if (error) throw error
+    const [{ count }] = await sql<{ count: string }[]>`
+      SELECT COUNT(*)::text as count FROM visitors v
+      WHERE
+        (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
+        AND (${status ?? null}::text IS NULL OR v.status = ${status ?? null}::text)
+        AND (
+          ${search ?? null}::text IS NULL OR
+          v.name ILIKE ${'%' + (search ?? '') + '%'} OR
+          v.company ILIKE ${'%' + (search ?? '') + '%'}
+        )
+    `
 
-    return NextResponse.json({ data, count, page, limit })
+    return NextResponse.json({ data: rows, count: parseInt(count), page, limit })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -39,12 +60,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const allowed = await checkPermission(user.id, 'visitors.create')
-    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const role = session.user.role as UserRole
+    if (!hasPermission(role, 'visitors.create')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const body = await request.json()
     const { name, company, phone, email, purpose, host_id, scheduled_at, notes } = body
@@ -53,29 +75,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 })
     }
 
-    const { data, error } = await supabase
-      .from('visitors')
-      .insert({
-        name, company, phone, email, purpose,
-        host_id, scheduled_at, notes,
-        created_by: user.id,
-      })
-      .select()
-      .single()
+    const [visitor] = await sql`
+      INSERT INTO visitors (name, company, phone, email, purpose, host_id, scheduled_at, notes, created_by)
+      VALUES (
+        ${name}, ${company ?? null}, ${phone ?? null}, ${email ?? null},
+        ${purpose}, ${host_id}, ${scheduled_at ?? null}, ${notes ?? null}, ${session.user.id}
+      )
+      RETURNING *
+    `
 
-    if (error) throw error
+    await sql`
+      INSERT INTO audit_logs (user_id, action, table_name, record_id, new_data)
+      VALUES (${session.user.id}, 'create', 'visitors', ${visitor.id}, ${JSON.stringify(visitor)})
+    `
 
-    // 감사 로그
-    const serviceClient = await createServiceClient()
-    await serviceClient.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'create',
-      table_name: 'visitors',
-      record_id: data.id,
-      new_data: data,
-    })
-
-    return NextResponse.json({ data }, { status: 201 })
+    return NextResponse.json({ data: visitor }, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

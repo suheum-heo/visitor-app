@@ -1,6 +1,8 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { checkPermission } from '@/lib/auth/rbac'
+import { auth } from '@/auth'
+import sql from '@/lib/db'
+import { hasPermission } from '@/lib/auth/rbac'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { UserRole } from '@/types'
 
 export async function GET(
   _request: NextRequest,
@@ -8,19 +10,24 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data, error } = await supabase
-      .from('meetings')
-      .select(`*, host:host_id(id, name, email, department), visitor:visitor_id(id, name, company)`)
-      .eq('id', id)
-      .single()
+    const [meeting] = await sql`
+      SELECT m.*,
+        json_build_object('id', u.id, 'name', u.name, 'email', u.email, 'department', u.department) as host,
+        CASE WHEN v.id IS NOT NULL
+          THEN json_build_object('id', v.id, 'name', v.name, 'company', v.company)
+          ELSE null END as visitor
+      FROM meetings m
+      LEFT JOIN users u ON m.host_id = u.id
+      LEFT JOIN visitors v ON m.visitor_id = v.id
+      WHERE m.id = ${id}
+    `
 
-    if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: meeting })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -32,46 +39,41 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const canUpdateAll = await checkPermission(user.id, 'meetings.update.all')
-    const canUpdateOwn = await checkPermission(user.id, 'meetings.update.own')
+    const role = session.user.role as UserRole
+    const canUpdateAll = hasPermission(role, 'meetings.update.all')
+    const canUpdateOwn = hasPermission(role, 'meetings.update.own')
     if (!canUpdateAll && !canUpdateOwn) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { data: existing } = await supabase
-      .from('meetings').select('*').eq('id', id).single()
-
+    const [existing] = await sql`SELECT * FROM meetings WHERE id = ${id}`
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    if (!canUpdateAll && (existing.host_id !== user.id && existing.created_by !== user.id)) {
+    if (!canUpdateAll && existing.host_id !== session.user.id && existing.created_by !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { data, error } = await supabase
-      .from('meetings')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single()
+    const body = await request.json() as Record<string, string | number | boolean | null>
+    const allowed = ['title', 'description', 'host_id', 'visitor_id', 'location', 'scheduled_at', 'duration_minutes', 'status', 'notes']
+    const updates: Record<string, string | number | boolean | null> = Object.fromEntries(
+      Object.entries(body).filter(([k]) => allowed.includes(k))
+    )
 
-    if (error) throw error
+    const [meeting] = await sql`
+      UPDATE meetings SET ${sql(updates)}, updated_at = now()
+      WHERE id = ${id}
+      RETURNING *
+    `
 
-    const serviceClient = await createServiceClient()
-    await serviceClient.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'update',
-      table_name: 'meetings',
-      record_id: id,
-      old_data: existing,
-      new_data: data,
-    })
+    await sql`
+      INSERT INTO audit_logs (user_id, action, table_name, record_id, old_data, new_data)
+      VALUES (${session.user.id}, 'update', 'meetings', ${id}, ${JSON.stringify(existing)}, ${JSON.stringify(meeting)})
+    `
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: meeting })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -83,29 +85,23 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const allowed = await checkPermission(user.id, 'meetings.delete')
-    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const role = session.user.role as UserRole
+    if (!hasPermission(role, 'meetings.delete')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
-    const { data: existing } = await supabase
-      .from('meetings').select('*').eq('id', id).single()
-
+    const [existing] = await sql`SELECT * FROM meetings WHERE id = ${id}`
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const { error } = await supabase.from('meetings').delete().eq('id', id)
-    if (error) throw error
+    await sql`DELETE FROM meetings WHERE id = ${id}`
 
-    const serviceClient = await createServiceClient()
-    await serviceClient.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'delete',
-      table_name: 'meetings',
-      record_id: id,
-      old_data: existing,
-    })
+    await sql`
+      INSERT INTO audit_logs (user_id, action, table_name, record_id, old_data)
+      VALUES (${session.user.id}, 'delete', 'meetings', ${id}, ${JSON.stringify(existing)})
+    `
 
     return NextResponse.json({ success: true })
   } catch {

@@ -1,59 +1,22 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { auth } from '@/auth'
+import { NextResponse } from 'next/server'
 
-export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+export const proxy = auth((req) => {
+  const { pathname } = req.nextUrl
+  const isPublic =
+    pathname.startsWith('/api/auth') ||
+    pathname === '/login' ||
+    pathname.startsWith('/_next') ||
+    pathname === '/favicon.ico'
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
-
-  // 보호 라우트: 로그인 필요
-  const isProtectedRoute =
-    !pathname.startsWith('/login') &&
-    !pathname.startsWith('/auth') &&
-    !pathname.startsWith('/_next') &&
-    !pathname.startsWith('/api/auth') &&
-    pathname !== '/favicon.ico'
-
-  if (isProtectedRoute && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  if (!req.auth && !isPublic) {
+    return NextResponse.redirect(new URL('/login', req.nextUrl))
   }
 
-  // 이미 로그인한 사용자가 /login 방문 시 대시보드로
-  if (pathname === '/login' && user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+  if (req.auth && pathname === '/login') {
+    return NextResponse.redirect(new URL('/', req.nextUrl))
   }
-
-  return supabaseResponse
-}
+})
 
 export const config = {
   matcher: [

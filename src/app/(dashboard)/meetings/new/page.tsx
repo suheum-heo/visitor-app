@@ -1,16 +1,20 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import sql from '@/lib/db'
 import MeetingForm from '@/components/meetings/MeetingForm'
 
 export default async function NewMeetingPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const session = await auth()
+  if (!session?.user?.id) redirect('/login')
 
-  const [{ data: hosts }, { data: visitors }] = await Promise.all([
-    supabase.from('users').select('id, name, email').eq('is_active', true).order('name'),
-    supabase.from('visitors').select('id, name, company')
-      .in('status', ['scheduled', 'arrived']).order('name'),
+  const [hosts, visitors] = await Promise.all([
+    sql<{ id: string; name: string | null; email: string }[]>`
+      SELECT id, name, email FROM users WHERE is_active = true ORDER BY name
+    `,
+    sql<{ id: string; name: string; company: string | null }[]>`
+      SELECT id, name, company FROM visitors
+      WHERE status IN ('scheduled', 'arrived') ORDER BY name
+    `,
   ])
 
   return (
@@ -20,11 +24,7 @@ export default async function NewMeetingPage() {
         <p className="text-sm text-gray-500 mt-1">새 미팅 정보를 입력하세요.</p>
       </div>
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <MeetingForm
-          hosts={hosts ?? []}
-          visitors={visitors ?? []}
-          currentUserId={user.id}
-        />
+        <MeetingForm hosts={hosts} visitors={visitors} currentUserId={session.user.id} />
       </div>
     </div>
   )

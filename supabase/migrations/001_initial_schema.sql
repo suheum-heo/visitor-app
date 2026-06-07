@@ -1,11 +1,13 @@
 -- ============================================================
 -- 001_initial_schema.sql
--- 기본 테이블 생성: users, visitors, meetings, audit_logs
+-- Neon (PostgreSQL) 용 — Supabase auth.users 의존성 제거
+-- users.id는 자체 UUID, google_id로 Google OAuth 연결
 -- ============================================================
 
--- users (auth.users 미러)
+-- users
 create table public.users (
-  id          uuid references auth.users(id) on delete cascade primary key,
+  id          uuid primary key default gen_random_uuid(),
+  google_id   text unique,
   email       text not null unique,
   name        text,
   avatar_url  text,
@@ -69,12 +71,12 @@ create table public.audit_logs (
 );
 
 -- 인덱스
-create index idx_visitors_host_id     on public.visitors(host_id);
-create index idx_visitors_status      on public.visitors(status);
-create index idx_visitors_scheduled   on public.visitors(scheduled_at);
-create index idx_meetings_host_id     on public.meetings(host_id);
-create index idx_meetings_visitor_id  on public.meetings(visitor_id);
-create index idx_meetings_scheduled   on public.meetings(scheduled_at);
-create index idx_meetings_status      on public.meetings(status);
-create index idx_audit_logs_user_id   on public.audit_logs(user_id);
-create index idx_audit_logs_table     on public.audit_logs(table_name, record_id);
+create index idx_visitors_host_id    on public.visitors(host_id);
+create index idx_visitors_status     on public.visitors(status);
+create index idx_visitors_scheduled  on public.visitors(scheduled_at);
+create index idx_meetings_host_id    on public.meetings(host_id);
+create index idx_meetings_visitor_id on public.meetings(visitor_id);
+create index idx_meetings_scheduled  on public.meetings(scheduled_at);
+create index idx_meetings_status     on public.meetings(status);
+create index idx_audit_logs_user_id  on public.audit_logs(user_id);
+create index idx_audit_logs_table    on public.audit_logs(table_name, record_id);
