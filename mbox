@@ -1,0 +1,76 @@
+From shheo21@Suheums-MacBook-Air.local  Mon May 25 18:00:01 2026
+Return-Path: <shheo21@Suheums-MacBook-Air.local>
+X-Original-To: shheo21
+Delivered-To: shheo21@Suheums-MacBook-Air.local
+Received: by Suheums-MacBook-Air.local (Postfix, from userid 501)
+	id 63FAA19E46584; Mon, 25 May 2026 18:00:01 +0900 (KST)
+From: shheo21@Suheums-MacBook-Air.local (Cron Daemon)
+To: shheo21@Suheums-MacBook-Air.local
+Subject: Cron <shheo21@Suheums-MacBook-Air> /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh
+X-Cron-Env: <SHELL=/bin/sh>
+X-Cron-Env: <PATH=/usr/bin:/bin>
+X-Cron-Env: <LOGNAME=shheo21>
+X-Cron-Env: <USER=shheo21>
+Message-Id: <20260525090001.63FAA19E46584@Suheums-MacBook-Air.local>
+Date: Mon, 25 May 2026 18:00:01 +0900 (KST)
+Status: RO
+
+/bin/sh: /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh: No such file or directory
+
+From shheo21@Suheums-MacBook-Air.local  Tue May 26 18:00:02 2026
+Return-Path: <shheo21@Suheums-MacBook-Air.local>
+X-Original-To: shheo21
+Delivered-To: shheo21@Suheums-MacBook-Air.local
+Received: by Suheums-MacBook-Air.local (Postfix, from userid 501)
+	id 8FCF31A0126B8; Tue, 26 May 2026 18:00:02 +0900 (KST)
+From: shheo21@Suheums-MacBook-Air.local (Cron Daemon)
+To: shheo21@Suheums-MacBook-Air.local
+Subject: Cron <shheo21@Suheums-MacBook-Air> /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh
+X-Cron-Env: <SHELL=/bin/sh>
+X-Cron-Env: <PATH=/usr/bin:/bin>
+X-Cron-Env: <LOGNAME=shheo21>
+X-Cron-Env: <USER=shheo21>
+Message-Id: <20260526090002.8FCF31A0126B8@Suheums-MacBook-Air.local>
+Date: Tue, 26 May 2026 18:00:02 +0900 (KST)
+Status: RO
+
+/bin/sh: /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh: No such file or directory
+
+From shheo21@Suheums-MacBook-Air.local  Thu May 28 18:00:05 2026
+Return-Path: <shheo21@Suheums-MacBook-Air.local>
+X-Original-To: shheo21
+Delivered-To: shheo21@Suheums-MacBook-Air.local
+Received: by Suheums-MacBook-Air.local (Postfix, from userid 501)
+	id 564621A3BFA6C; Thu, 28 May 2026 18:00:03 +0900 (KST)
+From: shheo21@Suheums-MacBook-Air.local (Cron Daemon)
+To: shheo21@Suheums-MacBook-Air.local
+Subject: Cron <shheo21@Suheums-MacBook-Air> /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh
+X-Cron-Env: <SHELL=/bin/sh>
+X-Cron-Env: <PATH=/usr/bin:/bin>
+X-Cron-Env: <LOGNAME=shheo21>
+X-Cron-Env: <USER=shheo21>
+Message-Id: <20260528090005.564621A3BFA6C@Suheums-MacBook-Air.local>
+Date: Thu, 28 May 2026 18:00:03 +0900 (KST)
+Status: RO
+
+/bin/sh: /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh: No such file or directory
+
+From shheo21@Suheums-MacBook-Air.local  Fri May 29 18:00:18 2026
+Return-Path: <shheo21@Suheums-MacBook-Air.local>
+X-Original-To: shheo21
+Delivered-To: shheo21@Suheums-MacBook-Air.local
+Received: by Suheums-MacBook-Air.local (Postfix, from userid 501)
+	id D86821A534EF9; Fri, 29 May 2026 18:00:16 +0900 (KST)
+From: shheo21@Suheums-MacBook-Air.local (Cron Daemon)
+To: shheo21@Suheums-MacBook-Air.local
+Subject: Cron <shheo21@Suheums-MacBook-Air> /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh
+X-Cron-Env: <SHELL=/bin/sh>
+X-Cron-Env: <PATH=/usr/bin:/bin>
+X-Cron-Env: <LOGNAME=shheo21>
+X-Cron-Env: <USER=shheo21>
+Message-Id: <20260529090017.D86821A534EF9@Suheums-MacBook-Air.local>
+Date: Fri, 29 May 2026 18:00:16 +0900 (KST)
+Status: RO
+
+/bin/sh: /Users/shheo21/Dev/stock-data-pipeline/pipeline.sh: No such file or directory
+
