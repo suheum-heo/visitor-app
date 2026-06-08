@@ -1,78 +1,60 @@
-# visitor-app — Phase 1 MVP
+# visitor-app — Phase 2
 
-현재 Phase: **Phase 1 (MVP)**  
+현재 Phase: **Phase 2 (파일/연동)**  
 시작일: 2026-06-08
 
 ---
 
-## Phase 1 체크리스트
+## Phase 2 체크리스트
 
-### Step 1: Next.js 프로젝트 초기화
-- [x] pnpm create next-app 실행
-- [x] 의존성 설치 (@supabase/supabase-js, @supabase/ssr)
-- [x] shadcn/ui 초기화 + 컴포넌트 추가
+### Module 1: 파일 업로드 (R2)
+- [x] `supabase/migrations/004_phase2_documents.sql`
+- [x] `src/app/api/documents/route.ts` (GET, POST, DELETE)
+- [x] `src/components/meetings/DocumentUpload.tsx`
+- [x] 미팅 상세 페이지 연동
+- [x] `pnpm build` 성공
 
-### Step 2: 환경변수
-- [x] .env.example 생성 (키 이름만)
-- [ ] .env.local 생성 (실제 값 — gitignore, Supabase 생성 후)
+### Module 2: 명함 OCR
+- [x] `supabase/migrations/005_phase2_business_cards.sql`
+- [x] `src/lib/ocr/businessCard.ts` (Claude Vision claude-sonnet-4-20250514)
+- [x] `src/app/api/business-cards/route.ts` (multipart OCR + JSON 저장)
+- [x] `src/components/business-cards/BusinessCardOcr.tsx` (검토 후 저장)
+- [x] 방문객/미팅 상세 페이지 연동
+- [x] `.env.example` ANTHROPIC_API_KEY 추가
+- [x] `pnpm build` 성공
 
-### Step 3: Supabase 클라이언트
-- [x] src/lib/supabase/client.ts
-- [x] src/lib/supabase/server.ts
-- [x] src/proxy.ts (Next.js 16: middleware → proxy)
+### Module 3: 출입 기록
+- [x] `supabase/migrations/006_phase2_access_records.sql`
+- [x] `src/app/api/access-records/route.ts` (GET, POST)
+- [x] `src/app/api/access-records/sync/route.ts` (stub → sync_logs)
+- [x] `src/app/(dashboard)/access-records/page.tsx`
+- [x] RBAC: access.read / access.create / access.sync
+- [x] `pnpm build` 성공
 
-### Step 4: DB 스키마 (Migrations)
-- [x] supabase/migrations/001_initial_schema.sql
-- [x] supabase/migrations/002_rls_policies.sql
-- [x] supabase/migrations/003_triggers.sql
+### Module 4: 통합 검색
+- [x] `supabase/migrations/007_phase2_search_fts.sql` (GIN FTS 인덱스)
+- [x] `src/app/api/search/route.ts` (to_tsvector / plainto_tsquery)
+- [x] `src/app/(dashboard)/search/page.tsx`
+- [x] 사이드바 네비게이션 추가
+- [x] `pnpm build` 성공
 
-### Step 5: RBAC
-- [x] src/lib/auth/rbac.ts
-
-### Step 6: Auth
-- [x] src/app/(auth)/login/page.tsx
-- [x] src/app/auth/callback/route.ts
-- [x] src/app/(dashboard)/layout.tsx (세션 가드)
-
-### Step 7: 타입 정의
-- [x] src/types/index.ts
-
-### Step 8: Visitors CRUD
-- [x] src/app/api/visitors/route.ts (GET, POST)
-- [x] src/app/api/visitors/[id]/route.ts (GET, PATCH, DELETE)
-- [x] src/components/visitors/VisitorForm.tsx
-- [x] src/components/visitors/VisitorTable.tsx
-- [x] src/components/visitors/VisitorStatusBadge.tsx
-- [x] src/app/(dashboard)/visitors/page.tsx
-- [x] src/app/(dashboard)/visitors/new/page.tsx
-- [x] src/app/(dashboard)/visitors/[id]/page.tsx
-
-### Step 9: Meetings CRUD
-- [x] src/app/api/meetings/route.ts (GET, POST)
-- [x] src/app/api/meetings/[id]/route.ts (GET, PATCH, DELETE)
-- [x] src/components/meetings/MeetingForm.tsx
-- [x] src/components/meetings/MeetingTable.tsx
-- [x] src/app/(dashboard)/meetings/page.tsx
-- [x] src/app/(dashboard)/meetings/new/page.tsx
-- [x] src/app/(dashboard)/meetings/[id]/page.tsx
-
-### Step 10: 대시보드
-- [x] src/app/(dashboard)/page.tsx
-- [x] 오늘 방문객 카드, 예정 미팅 카드, 상태별 카드
-
-### Step 11: 검증
-- [ ] pnpm build 성공
-- [ ] Supabase 프로젝트 생성 + migration 적용
-- [ ] Google OAuth 로그인 → 대시보드 진입 확인
-- [ ] 방문객 CRUD 동작 확인
-- [ ] 미팅 CRUD 동작 확인
-
-### Step 12: 배포
-- [ ] vercel.json 작성
-- [ ] Vercel 환경변수 설정
-- [ ] Preview 배포 확인
+### 배포 전 확인
+- [ ] Neon에 migration 004–007 적용
+- [ ] R2 버킷 + 환경변수 설정
+- [ ] ANTHROPIC_API_KEY 설정
+- [ ] CRON_SECRET 설정 (sync stub cron 연동 시)
 
 ---
 
 ## Review Section
-_(작업 완료 후 작성)_
+
+**Phase 2 완료 (2026-06-08)**
+
+4개 모듈 모두 구현 및 `pnpm build` 통과. 커밋 4건 push 완료:
+
+1. `feat(documents)` — R2 문서 업로드 API + 미팅 상세 UI
+2. `feat(ocr)` — Claude Vision 명함 OCR + 검토·저장 UI
+3. `feat(access)` — 출입 기록 CRUD + sync stub
+4. (search 포함) — PostgreSQL FTS 통합 검색 API + `/search` 페이지
+
+**다음 단계:** Neon migration 적용 후 R2/Anthropic 환경변수 설정, 실제 동작 E2E 확인.
