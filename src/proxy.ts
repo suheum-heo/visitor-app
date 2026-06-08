@@ -5,6 +5,8 @@ export const proxy = auth((req) => {
   const { pathname } = req.nextUrl
   const isPublic =
     pathname.startsWith('/api/auth') ||
+    pathname === '/api/health' ||
+    pathname.startsWith('/api/cron/') ||
     pathname === '/login' ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'

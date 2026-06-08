@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 export const r2 = new S3Client({
@@ -28,4 +28,14 @@ export async function getPresignedUploadUrl(key: string, contentType: string, ex
     new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
     { expiresIn }
   )
+}
+
+export async function checkR2Connectivity(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await r2.send(new HeadBucketCommand({ Bucket: BUCKET }))
+    return { ok: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'R2 connectivity check failed'
+    return { ok: false, error: message }
+  }
 }
