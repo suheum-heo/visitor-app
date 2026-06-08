@@ -25,7 +25,7 @@ export default async function VisitorDetailPage({ params }: PageProps) {
     FROM visitors v
     LEFT JOIN users u1 ON v.host_id = u1.id
     LEFT JOIN users u2 ON v.created_by = u2.id
-    WHERE v.id = ${id}
+    WHERE v.id = ${id} AND v.deleted_at IS NULL
   `
   if (!visitor) notFound()
 

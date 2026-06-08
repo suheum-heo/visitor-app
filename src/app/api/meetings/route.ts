@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
+import { logAudit } from '@/lib/audit'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 
@@ -31,7 +32,8 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON m.host_id = u.id
       LEFT JOIN visitors v ON m.visitor_id = v.id
       WHERE
-        (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
+        m.deleted_at IS NULL
+        AND (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
         AND (${status ?? null}::text IS NULL OR m.status = ${status ?? null}::text)
         AND (${search ?? null}::text IS NULL OR m.title ILIKE ${'%' + (search ?? '') + '%'})
       ORDER BY m.scheduled_at DESC
@@ -41,7 +43,8 @@ export async function GET(request: NextRequest) {
     const [{ count }] = await sql<{ count: string }[]>`
       SELECT COUNT(*)::text as count FROM meetings m
       WHERE
-        (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
+        m.deleted_at IS NULL
+        AND (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
         AND (${status ?? null}::text IS NULL OR m.status = ${status ?? null}::text)
         AND (${search ?? null}::text IS NULL OR m.title ILIKE ${'%' + (search ?? '') + '%'})
     `
@@ -79,10 +82,14 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `
 
-    await sql`
-      INSERT INTO audit_logs (user_id, action, table_name, record_id, new_data)
-      VALUES (${session.user.id}, 'create', 'meetings', ${meeting.id}, ${JSON.stringify(meeting)})
-    `
+    await logAudit({
+      userId: session.user.id,
+      action: 'create',
+      resourceType: 'meetings',
+      resourceId: meeting.id,
+      request,
+      newData: meeting as Record<string, unknown>,
+    })
 
     return NextResponse.json({ data: meeting }, { status: 201 })
   } catch {

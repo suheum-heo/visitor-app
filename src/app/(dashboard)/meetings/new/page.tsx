@@ -13,7 +13,8 @@ export default async function NewMeetingPage() {
     `,
     sql<{ id: string; name: string; company: string | null }[]>`
       SELECT id, name, company FROM visitors
-      WHERE status IN ('scheduled', 'arrived') ORDER BY name
+      WHERE deleted_at IS NULL AND status IN ('scheduled', 'arrived')
+      ORDER BY name
     `,
   ])
 

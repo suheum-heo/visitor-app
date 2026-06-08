@@ -19,7 +19,8 @@ export async function GET() {
         SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') as month,
                COUNT(*)::text as count
         FROM visitors
-        WHERE created_at >= date_trunc('month', now()) - interval '11 months'
+        WHERE deleted_at IS NULL
+          AND created_at >= date_trunc('month', now()) - interval '11 months'
         GROUP BY 1
         ORDER BY 1
       `,
@@ -27,6 +28,7 @@ export async function GET() {
         SELECT COALESCE(NULLIF(TRIM(company), ''), '미지정') as company,
                COUNT(*)::text as count
         FROM visitors
+        WHERE deleted_at IS NULL
         GROUP BY 1
         ORDER BY count DESC
         LIMIT 10
@@ -35,7 +37,8 @@ export async function GET() {
         SELECT to_char(date_trunc('month', scheduled_at), 'YYYY-MM') as month,
                COUNT(*)::text as count
         FROM meetings
-        WHERE scheduled_at >= date_trunc('month', now()) - interval '11 months'
+        WHERE deleted_at IS NULL
+          AND scheduled_at >= date_trunc('month', now()) - interval '11 months'
         GROUP BY 1
         ORDER BY 1
       `,
@@ -43,7 +46,8 @@ export async function GET() {
         SELECT EXTRACT(HOUR FROM COALESCE(arrived_at, scheduled_at))::int::text as hour,
                COUNT(*)::text as count
         FROM visitors
-        WHERE COALESCE(arrived_at, scheduled_at) IS NOT NULL
+        WHERE deleted_at IS NULL
+          AND COALESCE(arrived_at, scheduled_at) IS NOT NULL
         GROUP BY 1
         ORDER BY 1
       `,

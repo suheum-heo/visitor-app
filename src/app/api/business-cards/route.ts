@@ -3,6 +3,7 @@ import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import { uploadFile } from '@/lib/storage/r2'
 import { extractBusinessCardData } from '@/lib/ocr/businessCard'
+import { logAudit } from '@/lib/audit'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 import { randomUUID } from 'crypto'
@@ -88,10 +89,14 @@ export async function POST(request: NextRequest) {
         RETURNING *
       `
 
-      await sql`
-        INSERT INTO audit_logs (user_id, action, table_name, record_id, new_data)
-        VALUES (${session.user.id}, 'create', 'business_cards', ${card.id}, ${JSON.stringify(card)})
-      `
+      await logAudit({
+        userId: session.user.id,
+        action: 'save',
+        resourceType: 'business_cards',
+        resourceId: card.id,
+        request,
+        newData: card as Record<string, unknown>,
+      })
 
       return NextResponse.json({ data: card }, { status: 201 })
     }

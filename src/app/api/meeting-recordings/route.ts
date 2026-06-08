@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
     const canReadAll = hasPermission(role, 'meetings.read.all')
     const userId = session.user.id
 
-    const [meeting] = await sql`SELECT host_id, created_by FROM meetings WHERE id = ${meetingId}`
+    const [meeting] = await sql`
+      SELECT host_id, created_by FROM meetings WHERE id = ${meetingId} AND deleted_at IS NULL
+    `
     if (!meeting) return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
 
     if (!canReadAll && meeting.host_id !== userId && meeting.created_by !== userId) {
@@ -72,7 +74,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'meeting_id and file are required' }, { status: 400 })
     }
 
-    const [meeting] = await sql`SELECT host_id, created_by FROM meetings WHERE id = ${meetingId}`
+    const [meeting] = await sql`
+      SELECT host_id, created_by FROM meetings WHERE id = ${meetingId} AND deleted_at IS NULL
+    `
     if (!meeting) return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
 
     if (!canUpdateAll && meeting.host_id !== session.user.id && meeting.created_by !== session.user.id) {

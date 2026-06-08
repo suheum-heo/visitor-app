@@ -33,7 +33,8 @@ export default async function VisitorsPage({ searchParams }: PageProps) {
     LEFT JOIN users u1 ON v.host_id = u1.id
     LEFT JOIN users u2 ON v.created_by = u2.id
     WHERE
-      (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
+      v.deleted_at IS NULL
+      AND (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
       AND (${status ?? null}::text IS NULL OR v.status = ${status ?? null}::text)
       AND (
         ${search ?? null}::text IS NULL OR
@@ -47,7 +48,8 @@ export default async function VisitorsPage({ searchParams }: PageProps) {
   const [{ count }] = await sql<{ count: string }[]>`
     SELECT COUNT(*)::text as count FROM visitors v
     WHERE
-      (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
+      v.deleted_at IS NULL
+      AND (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
       AND (${status ?? null}::text IS NULL OR v.status = ${status ?? null}::text)
       AND (
         ${search ?? null}::text IS NULL OR

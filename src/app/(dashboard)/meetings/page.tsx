@@ -34,7 +34,8 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
     LEFT JOIN users u ON m.host_id = u.id
     LEFT JOIN visitors v ON m.visitor_id = v.id
     WHERE
-      (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
+      m.deleted_at IS NULL
+      AND (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
       AND (${status ?? null}::text IS NULL OR m.status = ${status ?? null}::text)
       AND (${search ?? null}::text IS NULL OR m.title ILIKE ${'%' + (search ?? '') + '%'})
     ORDER BY m.scheduled_at DESC
@@ -44,7 +45,8 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
   const [{ count }] = await sql<{ count: string }[]>`
     SELECT COUNT(*)::text as count FROM meetings m
     WHERE
-      (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
+      m.deleted_at IS NULL
+      AND (${!canReadAll} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
       AND (${status ?? null}::text IS NULL OR m.status = ${status ?? null}::text)
       AND (${search ?? null}::text IS NULL OR m.title ILIKE ${'%' + (search ?? '') + '%'})
   `

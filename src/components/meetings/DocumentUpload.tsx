@@ -123,7 +123,7 @@ export default function DocumentUpload({ meetingId, canEdit }: DocumentUploadPro
           {documents.map((doc) => (
             <li key={doc.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <a
-                href={doc.file_path}
+                href={`/api/documents/download?id=${doc.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-blue-600 hover:underline min-w-0"

@@ -25,25 +25,30 @@ export default async function DashboardPage() {
     recentVisitors,
     upcomingMeetings,
   ] = await Promise.all([
-    sql<{ count: string }[]>`SELECT COUNT(*)::text as count FROM visitors`,
+    sql<{ count: string }[]>`SELECT COUNT(*)::text as count FROM visitors WHERE deleted_at IS NULL`,
     sql<{ count: string }[]>`
       SELECT COUNT(*)::text as count FROM visitors
-      WHERE scheduled_at BETWEEN ${todayStart.toISOString()} AND ${todayEnd.toISOString()}
+      WHERE deleted_at IS NULL
+        AND scheduled_at BETWEEN ${todayStart.toISOString()} AND ${todayEnd.toISOString()}
     `,
-    sql<{ count: string }[]>`SELECT COUNT(*)::text as count FROM visitors WHERE status = 'arrived'`,
+    sql<{ count: string }[]>`
+      SELECT COUNT(*)::text as count FROM visitors
+      WHERE deleted_at IS NULL AND status = 'arrived'
+    `,
     sql<{ count: string }[]>`
       SELECT COUNT(*)::text as count FROM meetings
-      WHERE status = 'scheduled' AND scheduled_at > now()
+      WHERE deleted_at IS NULL AND status = 'scheduled' AND scheduled_at > now()
     `,
     sql<{ id: string; name: string; company: string | null; status: VisitorStatus; purpose: VisitorPurpose }[]>`
       SELECT v.id, v.name, v.company, v.status, v.purpose
       FROM visitors v
+      WHERE v.deleted_at IS NULL
       ORDER BY v.created_at DESC LIMIT 5
     `,
     sql<{ id: string; title: string; scheduled_at: string; location: string | null }[]>`
       SELECT id, title, scheduled_at, location
       FROM meetings
-      WHERE status = 'scheduled' AND scheduled_at > now()
+      WHERE deleted_at IS NULL AND status = 'scheduled' AND scheduled_at > now()
       ORDER BY scheduled_at ASC LIMIT 5
     `,
   ])

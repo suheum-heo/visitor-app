@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
     const canReadAll = hasPermission(role, 'meetings.read.all')
     const userId = session.user.id
 
-    const [meeting] = await sql`SELECT host_id, created_by FROM meetings WHERE id = ${meetingId}`
+    const [meeting] = await sql`
+      SELECT host_id, created_by FROM meetings WHERE id = ${meetingId} AND deleted_at IS NULL
+    `
     if (!meeting) return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
 
     if (!canReadAll && meeting.host_id !== userId && meeting.created_by !== userId) {
@@ -75,7 +77,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'meeting_id and file are required' }, { status: 400 })
     }
 
-    const [meeting] = await sql`SELECT host_id, created_by FROM meetings WHERE id = ${meetingId}`
+    const [meeting] = await sql`
+      SELECT host_id, created_by FROM meetings WHERE id = ${meetingId} AND deleted_at IS NULL
+    `
     if (!meeting) return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
 
     if (!canUpdateAll && meeting.host_id !== session.user.id && meeting.created_by !== session.user.id) {
@@ -100,11 +104,6 @@ export async function POST(request: NextRequest) {
       INSERT INTO documents (meeting_id, file_name, file_path, file_size, mime_type, uploaded_by)
       VALUES (${meetingId}, ${file.name}, ${publicUrl}, ${file.size}, ${mimeType}, ${session.user.id})
       RETURNING *
-    `
-
-    await sql`
-      INSERT INTO audit_logs (user_id, action, table_name, record_id, new_data)
-      VALUES (${session.user.id}, 'create', 'documents', ${doc.id}, ${JSON.stringify(doc)})
     `
 
     return NextResponse.json({ data: doc }, { status: 201 })
@@ -152,11 +151,6 @@ export async function DELETE(request: NextRequest) {
     }
 
     await sql`DELETE FROM documents WHERE id = ${id}`
-
-    await sql`
-      INSERT INTO audit_logs (user_id, action, table_name, record_id, old_data)
-      VALUES (${session.user.id}, 'delete', 'documents', ${id}, ${JSON.stringify(doc)})
-    `
 
     return NextResponse.json({ success: true })
   } catch {

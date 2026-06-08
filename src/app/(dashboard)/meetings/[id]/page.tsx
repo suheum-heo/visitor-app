@@ -35,7 +35,7 @@ export default async function MeetingDetailPage({ params }: PageProps) {
     FROM meetings m
     LEFT JOIN users u ON m.host_id = u.id
     LEFT JOIN visitors v ON m.visitor_id = v.id
-    WHERE m.id = ${id}
+    WHERE m.id = ${id} AND m.deleted_at IS NULL
   `
   if (!meeting) notFound()
 
@@ -50,7 +50,9 @@ export default async function MeetingDetailPage({ params }: PageProps) {
       SELECT id, name, email FROM users WHERE is_active = true ORDER BY name
     `,
     sql<{ id: string; name: string; company: string | null }[]>`
-      SELECT id, name, company FROM visitors WHERE status IN ('scheduled', 'arrived') ORDER BY name
+      SELECT id, name, company FROM visitors
+      WHERE deleted_at IS NULL AND status IN ('scheduled', 'arrived')
+      ORDER BY name
     `,
   ])
 

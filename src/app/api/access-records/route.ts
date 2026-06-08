@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
+import { logAudit } from '@/lib/audit'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 
@@ -98,10 +99,14 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `
 
-    await sql`
-      INSERT INTO audit_logs (user_id, action, table_name, record_id, new_data)
-      VALUES (${session.user.id}, 'create', 'access_records', ${record.id}, ${JSON.stringify(record)})
-    `
+    await logAudit({
+      userId: session.user.id,
+      action: 'create',
+      resourceType: 'access_records',
+      resourceId: record.id,
+      request,
+      newData: record as Record<string, unknown>,
+    })
 
     return NextResponse.json({ data: record }, { status: 201 })
   } catch {

@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
+import { logAudit } from '@/lib/audit'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 
@@ -29,7 +30,8 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u1 ON v.host_id = u1.id
       LEFT JOIN users u2 ON v.created_by = u2.id
       WHERE
-        (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
+        v.deleted_at IS NULL
+        AND (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
         AND (${status ?? null}::text IS NULL OR v.status = ${status ?? null}::text)
         AND (
           ${search ?? null}::text IS NULL OR
@@ -43,7 +45,8 @@ export async function GET(request: NextRequest) {
     const [{ count }] = await sql<{ count: string }[]>`
       SELECT COUNT(*)::text as count FROM visitors v
       WHERE
-        (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
+        v.deleted_at IS NULL
+        AND (${!canReadAll} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
         AND (${status ?? null}::text IS NULL OR v.status = ${status ?? null}::text)
         AND (
           ${search ?? null}::text IS NULL OR
@@ -84,10 +87,14 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `
 
-    await sql`
-      INSERT INTO audit_logs (user_id, action, table_name, record_id, new_data)
-      VALUES (${session.user.id}, 'create', 'visitors', ${visitor.id}, ${JSON.stringify(visitor)})
-    `
+    await logAudit({
+      userId: session.user.id,
+      action: 'create',
+      resourceType: 'visitors',
+      resourceId: visitor.id,
+      request,
+      newData: visitor as Record<string, unknown>,
+    })
 
     return NextResponse.json({ data: visitor }, { status: 201 })
   } catch {

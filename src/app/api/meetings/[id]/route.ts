@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
+import { logAudit } from '@/lib/audit'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 
@@ -22,7 +23,7 @@ export async function GET(
       FROM meetings m
       LEFT JOIN users u ON m.host_id = u.id
       LEFT JOIN visitors v ON m.visitor_id = v.id
-      WHERE m.id = ${id}
+      WHERE m.id = ${id} AND m.deleted_at IS NULL
     `
 
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -49,7 +50,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const [existing] = await sql`SELECT * FROM meetings WHERE id = ${id}`
+    const [existing] = await sql`SELECT * FROM meetings WHERE id = ${id} AND deleted_at IS NULL`
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (!canUpdateAll && existing.host_id !== session.user.id && existing.created_by !== session.user.id) {
@@ -68,10 +69,15 @@ export async function PATCH(
       RETURNING *
     `
 
-    await sql`
-      INSERT INTO audit_logs (user_id, action, table_name, record_id, old_data, new_data)
-      VALUES (${session.user.id}, 'update', 'meetings', ${id}, ${JSON.stringify(existing)}, ${JSON.stringify(meeting)})
-    `
+    await logAudit({
+      userId: session.user.id,
+      action: 'update',
+      resourceType: 'meetings',
+      resourceId: id,
+      request,
+      oldData: existing as Record<string, unknown>,
+      newData: meeting as Record<string, unknown>,
+    })
 
     return NextResponse.json({ data: meeting })
   } catch {
@@ -80,7 +86,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -93,15 +99,24 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const [existing] = await sql`SELECT * FROM meetings WHERE id = ${id}`
+    const [existing] = await sql`SELECT * FROM meetings WHERE id = ${id} AND deleted_at IS NULL`
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    await sql`DELETE FROM meetings WHERE id = ${id}`
-
-    await sql`
-      INSERT INTO audit_logs (user_id, action, table_name, record_id, old_data)
-      VALUES (${session.user.id}, 'delete', 'meetings', ${id}, ${JSON.stringify(existing)})
+    const [deleted] = await sql`
+      UPDATE meetings SET deleted_at = now(), updated_at = now()
+      WHERE id = ${id}
+      RETURNING *
     `
+
+    await logAudit({
+      userId: session.user.id,
+      action: 'delete',
+      resourceType: 'meetings',
+      resourceId: id,
+      request,
+      oldData: existing as Record<string, unknown>,
+      newData: deleted as Record<string, unknown>,
+    })
 
     return NextResponse.json({ success: true })
   } catch {

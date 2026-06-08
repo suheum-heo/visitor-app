@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
                 coalesce(v.phone, '') || ' ' ||
                 coalesce(v.notes, '')
               ) @@ plainto_tsquery('simple', ${q})
+              AND v.deleted_at IS NULL
               AND (${!canReadAllVisitors} = false OR (v.host_id = ${userId} OR v.created_by = ${userId}))
               AND (${dateFrom ?? null}::timestamptz IS NULL OR v.scheduled_at >= ${dateFrom ?? null}::timestamptz)
               AND (${dateTo ?? null}::timestamptz IS NULL OR v.scheduled_at <= ${dateTo ?? null}::timestamptz)
@@ -85,6 +86,7 @@ export async function GET(request: NextRequest) {
                 coalesce(m.location, '') || ' ' ||
                 coalesce(m.notes, '')
               ) @@ plainto_tsquery('simple', ${q})
+              AND m.deleted_at IS NULL
               AND (${!canReadAllMeetings} = false OR (m.host_id = ${userId} OR m.created_by = ${userId}))
               AND (${dateFrom ?? null}::timestamptz IS NULL OR m.scheduled_at >= ${dateFrom ?? null}::timestamptz)
               AND (${dateTo ?? null}::timestamptz IS NULL OR m.scheduled_at <= ${dateTo ?? null}::timestamptz)
