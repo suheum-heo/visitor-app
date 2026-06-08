@@ -133,8 +133,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error'
-    if (message.includes('ANTHROPIC') || message.includes('Claude')) {
-      return NextResponse.json({ error: message }, { status: 502 })
+    if (message.includes('GEMINI') || message.includes('Gemini')) {
+      const status = /overloaded|high demand|503|429/i.test(message) ? 503 : 502
+      return NextResponse.json({ error: message }, { status })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

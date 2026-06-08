@@ -48,11 +48,50 @@ export interface Meeting {
   duration_minutes: number
   status: MeetingStatus
   notes: string | null
+  zoom_link: string | null
   created_by: string
   created_at: string
   updated_at: string
   host?: Pick<User, 'id' | 'name' | 'email' | 'department'>
   visitor?: Pick<Visitor, 'id' | 'name' | 'company'>
+}
+
+export type TranscriptionStatus = 'pending' | 'processing' | 'done'
+
+export interface MeetingRecording {
+  id: string
+  meeting_id: string
+  file_name: string
+  file_path: string
+  file_size: number
+  mime_type: string
+  transcription_status: TranscriptionStatus
+  transcription_text: string | null
+  uploaded_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ReportMonthCount {
+  month: string
+  count: number
+}
+
+export interface ReportCompanyCount {
+  company: string
+  count: number
+}
+
+export interface ReportHourCount {
+  hour: number
+  count: number
+}
+
+export interface ReportStats {
+  visitors_by_month: ReportMonthCount[]
+  visitors_by_company: ReportCompanyCount[]
+  meetings_by_month: ReportMonthCount[]
+  peak_visit_hours: ReportHourCount[]
 }
 
 export interface BusinessCard {
@@ -148,3 +187,4 @@ export type Permission =
   | 'access.read'
   | 'access.create'
   | 'access.sync'
+  | 'reports.read'

@@ -1,34 +1,8 @@
 import type { Permission, UserRole } from '@/types'
 import sql from '@/lib/db'
+import { hasPermission, ROLE_PERMISSIONS } from '@/lib/auth/permissions'
 
-const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  admin: [
-    'visitors.create', 'visitors.read.all', 'visitors.read.own',
-    'visitors.update.all', 'visitors.update.own', 'visitors.delete',
-    'meetings.create', 'meetings.read.all', 'meetings.read.own',
-    'meetings.update.all', 'meetings.update.own', 'meetings.delete',
-    'users.manage', 'audit.read',
-    'access.read', 'access.create', 'access.sync',
-  ],
-  manager: [
-    'visitors.create', 'visitors.read.all', 'visitors.read.own',
-    'visitors.update.all', 'visitors.update.own', 'visitors.delete',
-    'meetings.create', 'meetings.read.all', 'meetings.read.own',
-    'meetings.update.all', 'meetings.update.own', 'meetings.delete',
-    'audit.read',
-    'access.read',
-  ],
-  staff: [
-    'visitors.create', 'visitors.read.own', 'visitors.update.own',
-    'meetings.create', 'meetings.read.own', 'meetings.update.own',
-  ],
-  security: [
-    'visitors.create', 'visitors.read.all', 'visitors.read.own',
-    'visitors.update.all', 'visitors.update.own',
-    'access.read', 'access.create', 'access.sync',
-  ],
-  guest: [],
-}
+export { hasPermission } from '@/lib/auth/permissions'
 
 export async function getUserRole(userId: string): Promise<UserRole | null> {
   const [user] = await sql<{ role: string }[]>`
@@ -43,9 +17,5 @@ export async function checkPermission(
 ): Promise<boolean> {
   const role = await getUserRole(userId)
   if (!role) return false
-  return ROLE_PERMISSIONS[role].includes(permission)
-}
-
-export function hasPermission(role: UserRole, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission)
 }

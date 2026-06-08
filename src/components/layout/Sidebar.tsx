@@ -2,20 +2,28 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, CalendarCheck, LayoutDashboard, DoorOpen, Search } from 'lucide-react'
+import { Users, CalendarCheck, LayoutDashboard, DoorOpen, Search, BarChart3 } from 'lucide-react'
+import { hasPermission } from '@/lib/auth/permissions'
+import type { UserRole } from '@/types'
 import { cn } from '@/lib/utils'
 import type { User } from '@/types'
 
 const navItems = [
-  { href: '/', label: '대시보드', icon: LayoutDashboard },
-  { href: '/visitors', label: '방문객 관리', icon: Users },
-  { href: '/meetings', label: '미팅 관리', icon: CalendarCheck },
-  { href: '/access-records', label: '출입 기록', icon: DoorOpen },
-  { href: '/search', label: '통합 검색', icon: Search },
+  { href: '/', label: '대시보드', icon: LayoutDashboard, permission: null },
+  { href: '/visitors', label: '방문객 관리', icon: Users, permission: null },
+  { href: '/meetings', label: '미팅 관리', icon: CalendarCheck, permission: null },
+  { href: '/access-records', label: '출입 기록', icon: DoorOpen, permission: null },
+  { href: '/search', label: '통합 검색', icon: Search, permission: null },
+  { href: '/reports', label: '보고서', icon: BarChart3, permission: 'reports.read' as const },
 ]
 
 export default function Sidebar({ user }: { user: User }) {
   const pathname = usePathname()
+  const role = user.role as UserRole
+
+  const visibleItems = navItems.filter(
+    (item) => !item.permission || hasPermission(role, item.permission)
+  )
 
   return (
     <aside className="w-60 bg-white border-r border-gray-200 flex flex-col">
@@ -23,7 +31,7 @@ export default function Sidebar({ user }: { user: User }) {
         <span className="font-bold text-gray-900 text-sm">방문객 관리 시스템</span>
       </div>
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => (
+        {visibleItems.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
