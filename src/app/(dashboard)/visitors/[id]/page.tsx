@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import VisitorForm from '@/components/visitors/VisitorForm'
+import BusinessCardOcr from '@/components/business-cards/BusinessCardOcr'
 import VisitorStatusBadge from '@/components/visitors/VisitorStatusBadge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -81,12 +82,20 @@ export default async function VisitorDetailPage({ params }: PageProps) {
           </dl>
         </div>
 
-        {canEdit && (
-          <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">정보 수정</h2>
-            <VisitorForm visitor={v} hosts={hosts} currentUserId={session.user.id} />
-          </div>
-        )}
+        <div className="lg:col-span-2 space-y-6">
+          {canEdit && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <BusinessCardOcr visitorId={v.id} />
+            </div>
+          )}
+
+          {canEdit && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="font-semibold text-gray-900 mb-4">정보 수정</h2>
+              <VisitorForm visitor={v} hosts={hosts} currentUserId={session.user.id} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

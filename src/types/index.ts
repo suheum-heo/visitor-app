@@ -55,6 +55,23 @@ export interface Meeting {
   visitor?: Pick<Visitor, 'id' | 'name' | 'company'>
 }
 
+export interface BusinessCard {
+  id: string
+  visitor_id: string | null
+  meeting_id: string | null
+  image_url: string
+  name: string | null
+  company: string | null
+  position: string | null
+  phone: string | null
+  email: string | null
+  ocr_raw: Record<string, unknown> | null
+  is_confirmed: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Document {
   id: string
   meeting_id: string
