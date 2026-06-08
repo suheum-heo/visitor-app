@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { VISITOR_PURPOSES } from '@/constants'
 import { toast } from 'sonner'
+import { userSelectItems } from '@/lib/select-items'
 import type { Visitor, User, VisitorPurpose } from '@/types'
 
 export interface VisitorFormOcrPrefill {
@@ -41,6 +42,11 @@ export default function VisitorForm({
   const isEdit = !!visitor
 
   const [loading, setLoading] = useState(false)
+  const hostItems = userSelectItems(hosts)
+  const purposeItems = Object.entries(VISITOR_PURPOSES).map(([value, label]) => ({
+    value,
+    label,
+  }))
   const [form, setForm] = useState({
     name: visitor?.name ?? '',
     company: visitor?.company ?? '',
@@ -156,7 +162,8 @@ export default function VisitorForm({
           <Label>방문 목적 *</Label>
           <Select
             value={form.purpose}
-            onValueChange={(v) => handleChange('purpose', v)}
+            onValueChange={(v) => v && handleChange('purpose', v)}
+            items={purposeItems}
           >
             <SelectTrigger>
               <SelectValue />
@@ -172,7 +179,8 @@ export default function VisitorForm({
           <Label>담당자 *</Label>
           <Select
             value={form.host_id}
-            onValueChange={(v) => handleChange('host_id', v)}
+            onValueChange={(v) => v && handleChange('host_id', v)}
+            items={hostItems}
           >
             <SelectTrigger>
               <SelectValue />

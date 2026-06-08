@@ -14,6 +14,12 @@ import {
 } from '@/components/ui/select'
 import { Search } from 'lucide-react'
 
+const TYPE_ITEMS = [
+  { value: 'all', label: '전체' },
+  { value: 'visitor', label: '방문객' },
+  { value: 'meeting', label: '미팅' },
+] as const
+
 export default function SearchForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -47,7 +53,11 @@ export default function SearchForm() {
         </div>
         <div className="w-40 space-y-2">
           <Label>유형</Label>
-          <Select value={type} onValueChange={(v) => v && setType(v)}>
+          <Select
+            value={type}
+            onValueChange={(v) => v && setType(v)}
+            items={[...TYPE_ITEMS]}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

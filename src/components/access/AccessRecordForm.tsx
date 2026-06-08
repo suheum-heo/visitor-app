@@ -13,7 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { visitorSelectItems } from '@/lib/select-items'
 import type { Visitor } from '@/types'
+
+const DIRECTION_ITEMS = [
+  { value: 'in', label: '입장' },
+  { value: 'out', label: '퇴장' },
+] as const
 
 interface AccessRecordFormProps {
   visitors: Pick<Visitor, 'id' | 'name' | 'company'>[]
@@ -22,6 +28,7 @@ interface AccessRecordFormProps {
 
 export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFormProps) {
   const [loading, setLoading] = useState(false)
+  const visitorItems = visitorSelectItems(visitors)
   const [form, setForm] = useState({
     name: '',
     company: '',
@@ -90,7 +97,11 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label>방문객 연결 (선택)</Label>
-        <Select value={form.visitor_id} onValueChange={handleVisitorSelect}>
+        <Select
+          value={form.visitor_id}
+          onValueChange={handleVisitorSelect}
+          items={visitorItems}
+        >
           <SelectTrigger>
             <SelectValue placeholder="없음" />
           </SelectTrigger>
@@ -131,6 +142,7 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
           <Select
             value={form.direction}
             onValueChange={(v) => v && setForm((p) => ({ ...p, direction: v }))}
+            items={[...DIRECTION_ITEMS]}
           >
             <SelectTrigger>
               <SelectValue />

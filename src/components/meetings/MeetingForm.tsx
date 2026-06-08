@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { userSelectItems, visitorSelectItems } from '@/lib/select-items'
 import type { Meeting, User, Visitor } from '@/types'
 
 interface MeetingFormProps {
@@ -28,6 +29,8 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
   const isEdit = !!meeting
 
   const [loading, setLoading] = useState(false)
+  const hostItems = userSelectItems(hosts)
+  const visitorItems = visitorSelectItems(visitors)
   const [form, setForm] = useState({
     title: meeting?.title ?? '',
     description: meeting?.description ?? '',
@@ -112,7 +115,8 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
           <Label>담당자 *</Label>
           <Select
             value={form.host_id}
-            onValueChange={(v) => handleChange('host_id', v)}
+            onValueChange={(v) => v && handleChange('host_id', v)}
+            items={hostItems}
           >
             <SelectTrigger>
               <SelectValue />
@@ -130,7 +134,8 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
           <Label>방문객 (선택)</Label>
           <Select
             value={form.visitor_id}
-            onValueChange={(v) => handleChange('visitor_id', v)}
+            onValueChange={(v) => handleChange('visitor_id', v ?? '')}
+            items={visitorItems}
           >
             <SelectTrigger>
               <SelectValue placeholder="없음" />
