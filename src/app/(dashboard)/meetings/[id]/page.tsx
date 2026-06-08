@@ -4,6 +4,7 @@ import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import MeetingForm from '@/components/meetings/MeetingForm'
 import DocumentUpload from '@/components/meetings/DocumentUpload'
+import RecordingUpload from '@/components/meetings/RecordingUpload'
 import BusinessCardOcr from '@/components/business-cards/BusinessCardOcr'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -125,6 +126,10 @@ export default async function MeetingDetailPage({ params }: PageProps) {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <DocumentUpload meetingId={m.id} canEdit={canEdit} />
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <RecordingUpload meetingId={m.id} canEdit={canEdit} />
           </div>
 
           {canEdit && (
