@@ -39,6 +39,7 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
       : '',
     duration_minutes: String(meeting?.duration_minutes ?? '60'),
     notes: meeting?.notes ?? '',
+    zoom_link: meeting?.zoom_link ?? '',
   })
 
   function handleChange(field: string, value: string | null) {
@@ -63,6 +64,7 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
         body: JSON.stringify({
           ...form,
           visitor_id: form.visitor_id || null,
+          zoom_link: form.zoom_link.trim() || null,
           duration_minutes: parseInt(form.duration_minutes),
         }),
       })
@@ -176,6 +178,17 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
           value={form.location}
           onChange={(e) => handleChange('location', e.target.value)}
           placeholder="3층 회의실 A"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="zoom_link">Zoom 미팅 링크</Label>
+        <Input
+          id="zoom_link"
+          type="url"
+          value={form.zoom_link}
+          onChange={(e) => handleChange('zoom_link', e.target.value)}
+          placeholder="https://zoom.us/j/..."
         />
       </div>
 

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { MEETING_STATUSES } from '@/constants'
 import type { Meeting, User, Visitor, MeetingStatus, UserRole } from '@/types'
+import { Video } from 'lucide-react'
 
 const statusVariant: Record<MeetingStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   scheduled: 'outline', in_progress: 'default', completed: 'secondary', cancelled: 'destructive',
@@ -70,9 +71,19 @@ export default async function MeetingDetailPage({ params }: PageProps) {
             {m.location ? ` · ${m.location}` : ''}
           </p>
         </div>
-        <Button variant="outline" asChild>
-          <Link href="/meetings">목록으로</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {m.zoom_link && (
+            <Button asChild>
+              <a href={m.zoom_link} target="_blank" rel="noopener noreferrer">
+                <Video className="h-4 w-4 mr-1" />
+                Zoom 참여
+              </a>
+            </Button>
+          )}
+          <Button variant="outline" asChild>
+            <Link href="/meetings">목록으로</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -87,6 +98,21 @@ export default async function MeetingDetailPage({ params }: PageProps) {
               </div>
             )}
             <div><dt className="text-gray-500">소요 시간</dt><dd className="font-medium mt-0.5">{m.duration_minutes}분</dd></div>
+            {m.zoom_link && (
+              <div>
+                <dt className="text-gray-500">화상회의</dt>
+                <dd className="mt-0.5">
+                  <a
+                    href={m.zoom_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline break-all"
+                  >
+                    {m.zoom_link}
+                  </a>
+                </dd>
+              </div>
+            )}
             {m.description && (
               <div><dt className="text-gray-500">설명</dt><dd className="mt-0.5 whitespace-pre-wrap">{m.description}</dd></div>
             )}

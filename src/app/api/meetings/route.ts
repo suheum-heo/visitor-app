@@ -63,17 +63,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes } = body
+    const { title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, zoom_link } = body
 
     if (!title || !host_id || !scheduled_at) {
       return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 })
     }
 
     const [meeting] = await sql`
-      INSERT INTO meetings (title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, created_by)
+      INSERT INTO meetings (title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, zoom_link, created_by)
       VALUES (
         ${title}, ${description ?? null}, ${host_id}, ${visitor_id ?? null},
-        ${location ?? null}, ${scheduled_at}, ${duration_minutes ?? 60}, ${notes ?? null}, ${session.user.id}
+        ${location ?? null}, ${scheduled_at}, ${duration_minutes ?? 60}, ${notes ?? null},
+        ${zoom_link ?? null}, ${session.user.id}
       )
       RETURNING *
     `
