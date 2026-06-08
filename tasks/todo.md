@@ -8,7 +8,7 @@
 ## Phase 4 체크리스트
 
 ### Module 1: 감사 로그 완성
-- [x] `supabase/migrations/010_phase4_audit_soft_delete.sql`
+- [x] `db/migrations/010_phase4_audit_soft_delete.sql`
 - [x] `src/lib/audit.ts` — `logAudit()` helper
 - [x] 모든 민감 액션에 logAudit 적용 + 파일 다운로드 API
 - [x] `pnpm build` 성공

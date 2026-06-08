@@ -1,20 +1,21 @@
 # CLAUDE.md — visitor-app
 
 > 통합 방문객 및 미팅 관리 시스템  
-> Stack: Next.js (App Router) · TypeScript · Supabase (PostgreSQL + Auth + Storage) · Vercel · Tailwind CSS
+> Stack: Next.js (App Router) · TypeScript · Neon (PostgreSQL) · NextAuth v5 · Cloudflare R2 · Vercel · Tailwind CSS
 
 ---
 
 ## Project Context
 
 방문객 등록/조회, 미팅 기록, 출입 기록 연동, 명함 OCR, 통합 검색을 하나의 플랫폼으로 관리하는 사내 시스템.  
-Google OAuth 기반 인증, RBAC 권한(Admin / Manager / Staff / Security / Guest), Supabase RLS가 핵심 보안 레이어.
+Google OAuth 기반 인증, RBAC 권한(Admin / Manager / Staff / Security / Guest), 애플리케이션 레이어 권한 검사가 핵심 보안 레이어.
 
 ```
 src/app/(dashboard)/     ← 보호된 라우트 (로그인 필수)
 src/app/api/             ← Route Handlers (서버 전용 로직)
-src/lib/supabase/        ← client.ts(브라우저) / server.ts(서버) 분리 필수
-supabase/migrations/     ← 스키마 변경은 반드시 migration 파일로
+src/lib/db.ts            ← postgres.js (Neon PostgreSQL)
+src/auth.ts              ← NextAuth v5 설정
+db/migrations/           ← 스키마 변경은 반드시 migration 파일로
 tasks/                   ← todo.md, lessons.md 항상 최신 유지
 ```
 
@@ -26,13 +27,13 @@ tasks/                   ← todo.md, lessons.md 항상 최신 유지
 - 3단계 이상이거나 아키텍처 결정이 수반되는 작업은 반드시 plan mode 진입
 - 막히면 즉시 STOP → `tasks/todo.md` 재작성 후 재시작, 억지로 밀지 않기
 - 검증 단계도 plan에 포함 (빌드만 계획하지 말 것)
-- DB 스키마·RLS·API 설계는 코드보다 spec을 먼저 작성
+- DB 스키마·API 설계는 코드보다 spec을 먼저 작성
 
 ### 2. Subagent Strategy
 - 메인 컨텍스트 보호를 위해 서브에이전트 적극 활용
 - 아래 작업은 서브에이전트로 분리:
-  - Supabase migration SQL 작성 및 검증
-  - OCR 로직 탐색 (Claude Vision API vs Google Vision)
+  - DB migration SQL 작성 및 검증
+  - OCR 로직 탐색 (Gemini Vision API)
   - 경비 시스템 API 스펙 분석
   - 복잡한 RBAC 정책 작성
 - 서브에이전트는 역할 하나에 집중, 결과만 메인으로 반환
@@ -44,9 +45,9 @@ tasks/                   ← todo.md, lessons.md 항상 최신 유지
 - 실수율이 줄 때까지 lessons 반복 정제
 
 ### 4. Verification Before Done
-- 작업 완료 전 반드시 증명: `npm run build` 성공 + 브라우저 동작 확인
+- 작업 완료 전 반드시 증명: `pnpm build` 성공 + 브라우저 동작 확인
 - API route 변경 시: curl 또는 테스트로 응답 직접 확인
-- RLS 정책 변경 시: 각 역할(Admin/Staff/Security)로 접근 시나리오 검증
+- RBAC 변경 시: 각 역할(Admin/Staff/Security)로 접근 시나리오 검증
 - "Staff engineer가 PR 승인할까?" 자문 후 완료 처리
 
 ### 5. Demand Elegance (Balanced)
@@ -90,7 +91,7 @@ git push origin main
 |------|-----------|
 | `feat` | 새 기능 추가 |
 | `fix` | 버그 수정 |
-| `schema` | Supabase migration 추가/변경 |
+| `schema` | DB migration 추가/변경 |
 | `refactor` | 동작 변경 없는 구조 개선 |
 | `style` | UI/CSS 변경 |
 | `chore` | 설정, 패키지, 문서 변경 |
@@ -98,7 +99,7 @@ git push origin main
 ### Commit 예시
 ```
 feat(visitors): 방문객 등록 CRUD API 및 UI 구현
-schema(access): access_records 테이블 + RLS 정책 추가
+schema(access): access_records 테이블 추가
 fix(auth): 서버 컴포넌트에서 세션 만료 시 리다이렉트 누락 수정
 chore: CLAUDE.md 초기 작성
 ```
@@ -117,7 +118,7 @@ chore: CLAUDE.md 초기 작성
 - **Simplicity First**: 변경은 최소한으로. 영향 범위를 의도적으로 좁혀라.
 - **No Laziness**: 근본 원인을 찾아라. 임시방편 없음. 시니어 기준 적용.
 - **Minimal Impact**: 필요한 것만 건드려라. 불필요한 버그 유입 금지.
-- **RLS is Law**: Supabase Row Level Security는 선택이 아닌 필수. 화면 권한 숨김만으로 끝내지 않는다.
+- **RBAC is Law**: 권한 검사는 UI + API Route **2중으로**. 화면 권한 숨김만으로 끝내지 않는다. (DB RLS 미사용)
 - **Never Commit Secrets**: `.env`, API 키, DB 비밀번호는 절대 Git에 올리지 않는다. `.env.example`에 키 이름만.
 - **Code is Code, Data is Data**: 공장·부서·상태코드 등 기준정보는 코드에 하드코딩 금지. DB에서 읽는다.
 
@@ -125,21 +126,18 @@ chore: CLAUDE.md 초기 작성
 
 ## Project-Specific Rules
 
-### Supabase
+### Database (Neon PostgreSQL)
 
 ```typescript
 // ✅ 서버 컴포넌트 / API Route
-import { createServerClient } from '@/lib/supabase/server'
+import sql from '@/lib/db'
 
-// ✅ 클라이언트 컴포넌트
-import { createBrowserClient } from '@/lib/supabase/client'
-
-// ❌ 서버에서 브라우저 클라이언트 절대 사용 금지
+const rows = await sql`SELECT * FROM visitors WHERE id = ${id}`
 ```
 
-- 스키마 변경은 항상 `supabase/migrations/NNN_description.sql` 파일로
+- 스키마 변경은 항상 `db/migrations/NNN_description.sql` 파일로
 - 마이그레이션 번호는 3자리 제로패딩: `001`, `002`, ...
-- 모든 테이블에 RLS 활성화 + 역할별 policy 명시
+- RLS 미사용 — 권한은 `lib/auth/rbac.ts`에서 처리
 - `updated_at` 자동 갱신 트리거 모든 테이블에 적용
 
 ### Authentication & RBAC
@@ -154,8 +152,9 @@ Security : 출입 기록 입력, 방문객 접수
 Guest    : 제한 읽기 전용
 ```
 
-- 권한 검사는 UI(버튼 숨김) + API Route + RLS **3중으로**
-- `lib/auth/rbac.ts`의 `checkPermission()` 함수를 API route 최상단에서 호출
+- 권한 검사는 UI(버튼 숨김) + API Route **2중으로**
+- 서버: `lib/auth/rbac.ts`의 `checkPermission()` — API route 최상단에서 호출
+- 클라이언트: `lib/auth/permissions.ts`의 `hasPermission()` — UI 조건부 렌더링
 - Google 로그인 후 `users` 테이블에서 역할 조회, 토큰에만 의존 금지
 
 ### API Route 작성 규칙
@@ -163,58 +162,63 @@ Guest    : 제한 읽기 전용
 ```typescript
 // 모든 API Route 기본 구조
 export async function GET(request: Request) {
-  const supabase = await createServerClient()
-  
-  // 1. 인증 확인
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  
-  // 2. 권한 확인
-  const allowed = await checkPermission(user.id, 'resource.action')
+  const session = await auth()
+  if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const allowed = await checkPermission(session.user.id, 'resource.action')
   if (!allowed) return Response.json({ error: 'Forbidden' }, { status: 403 })
-  
-  // 3. 비즈니스 로직
-  // ...
-  
-  // 4. 응답
-  return Response.json(data)
+
+  const rows = await sql`...`
+  return Response.json(rows)
 }
 ```
 
 - `try/catch`로 에러 반드시 처리, 스택 트레이스 클라이언트에 노출 금지
-- 감사 로그: 방문객 등록/수정/삭제, 민감 정보 조회, 파일 다운로드 시 `audit_logs` 테이블에 기록
+- 감사 로그: `lib/audit.ts`의 `logAudit()` — 방문객/미팅 CRUD, 파일 다운로드, 명함 저장, 출입 기록 생성
 
-### 파일 업로드
+### 파일 업로드 (Cloudflare R2)
 
-- Supabase Storage 버킷: `documents`, `business-cards`
-- DB에는 파일 경로/URL만 저장, 파일 본체는 Storage에
+- R2 버킷 prefix: `documents/`, `business-cards/`, `recordings/`
+- `lib/storage/r2.ts` — 업로드·삭제·연결 확인
+- DB에는 파일 경로/URL만 저장, 파일 본체는 R2에
 - 업로드 전 파일 크기·타입 서버에서 검증
-- 녹음·영상 파일은 스트리밍 URL 생성, 직접 다운로드 기본 비활성화
+- 문서 다운로드는 `/api/documents/download` 경유 (감사 로그 기록)
 
 ### 명함 OCR
 
-- `lib/ocr/businessCard.ts`에서 Claude Vision API 호출
+- `lib/ocr/businessCard.ts`에서 Google Gemini Vision API 호출
 - OCR 결과는 사용자가 반드시 검토·확정 후 저장 (자동 저장 금지)
-- 명함 이미지는 `business-cards` 버킷에 저장 후 URL을 `business_cards` 테이블에 기록
+- 명함 이미지는 R2 `business-cards/`에 저장 후 URL을 `business_cards` 테이블에 기록
 
 ### 출입 기록 동기화
 
-- `api/cron/sync-access/route.ts` → Vercel Cron (매 1시간)
+- `api/cron/sync-access/route.ts` → Vercel Cron (매일 9am)
 - 동기화 결과는 `sync_logs` 테이블에 기록 (성공/실패/변경 건수)
 - 경비 시스템 API 장애 시 graceful degradation: 로그만 남기고 서비스 중단 없음
 - 방문객 매칭 실패 건은 `access_records.visitor_id = NULL`로 저장 후 관리자 검토 대기
+
+### 데이터 보관
+
+- `api/cron/data-retention/route.ts` → Vercel Cron (매일 자정)
+- 출입 기록 1년, 감사 로그 2년, soft-deleted 방문객/미팅 6개월 후 영구 삭제
 
 ### 환경변수
 
 `.env.example` 항목 추가 시 바로 커밋. 실제 값은 Vercel 대시보드에서만 관리.
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
+AUTH_SECRET=
+CLOUDFLARE_R2_ACCOUNT_ID=
+CLOUDFLARE_R2_ACCESS_KEY_ID=
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=
+CLOUDFLARE_R2_BUCKET_NAME=
+CLOUDFLARE_R2_PUBLIC_URL=
+GEMINI_API_KEY=
+GEMINI_MODEL=
 NEXT_PUBLIC_APP_URL=
-SECURITY_SYSTEM_API_URL=
-SECURITY_SYSTEM_API_KEY=
 CRON_SECRET=
 ```
 
@@ -232,17 +236,17 @@ src/
 │   ├── ui/                    ← 재사용 공통 컴포넌트
 │   └── [feature]/             ← 기능별 컴포넌트
 ├── lib/
-│   ├── supabase/              ← client.ts / server.ts / middleware.ts
-│   ├── auth/rbac.ts           ← 권한 검사 유틸
-│   ├── storage/upload.ts      ← 파일 업로드 헬퍼
-│   └── ocr/businessCard.ts    ← 명함 OCR
-├── hooks/                     ← React Query 기반 데이터 훅
-├── types/                     ← Supabase gen types + 커스텀 타입
+│   ├── db.ts                  ← postgres.js (Neon)
+│   ├── auth/rbac.ts           ← 서버 권한 검사
+│   ├── auth/permissions.ts    ← 클라이언트 권한 검사
+│   ├── storage/r2.ts          ← Cloudflare R2 헬퍼
+│   ├── audit.ts               ← 감사 로그
+│   └── ocr/businessCard.ts    ← 명함 OCR (Gemini)
+├── types/                     ← 커스텀 TypeScript 타입
 └── constants/                 ← ROLES, STATUS_CODES, VISITOR_TYPES
 
-supabase/
-├── migrations/                ← NNN_description.sql (순서 엄수)
-└── seed/demo_data.sql
+db/
+└── migrations/                ← NNN_description.sql (순서 엄수)
 
 tasks/
 ├── todo.md                    ← 현재 작업 계획 (항상 최신)
@@ -254,9 +258,9 @@ tasks/
 ## Phase Roadmap
 
 ```
-Phase 1 (MVP)     : Supabase 스키마 → Auth → 방문객 CRUD → 미팅 CRUD → 대시보드 → Vercel 배포
-Phase 2 (파일/연동): 파일 업로드 → 명함 OCR → 출입 기록 모듈 → 통합 검색
-Phase 3 (분석)    : 보고서/통계 → 화상회의 연동 → 자동 전사
+Phase 1 (MVP)     : DB 스키마 → NextAuth → 방문객 CRUD → 미팅 CRUD → 대시보드 → Vercel 배포
+Phase 2 (파일/연동): R2 파일 업로드 → 명함 OCR → 출입 기록 모듈 → 통합 검색
+Phase 3 (분석)    : 보고서/통계 → Zoom 링크 → 녹음 업로드·전사 stub
 Phase 4 (운영화)  : 감사 로그 완성 → 개인정보 보관기간 정책 → 모니터링
 ```
 

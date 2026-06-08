@@ -72,7 +72,7 @@ Run migrations in order against your PostgreSQL database:
 
 ```bash
 # Example with psql
-for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -f "$f"; done
+for f in db/migrations/*.sql; do psql "$DATABASE_URL" -f "$f"; done
 ```
 
 Migrations: `001` initial schema → `010` audit log & soft delete.
@@ -109,7 +109,7 @@ src/
 ├── types/                  # Shared TypeScript types
 └── constants/              # Roles, status codes
 
-supabase/migrations/        # SQL migrations (run in order)
+db/migrations/              # SQL migrations (run in order)
 ```
 
 ## Roles & Permissions
