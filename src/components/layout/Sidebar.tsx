@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, CalendarCheck, LayoutDashboard } from 'lucide-react'
+import { Users, CalendarCheck, LayoutDashboard, DoorOpen, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { User } from '@/types'
 
@@ -10,6 +10,8 @@ const navItems = [
   { href: '/', label: '대시보드', icon: LayoutDashboard },
   { href: '/visitors', label: '방문객 관리', icon: Users },
   { href: '/meetings', label: '미팅 관리', icon: CalendarCheck },
+  { href: '/access-records', label: '출입 기록', icon: DoorOpen },
+  { href: '/search', label: '통합 검색', icon: Search },
 ]
 
 export default function Sidebar({ user }: { user: User }) {

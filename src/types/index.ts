@@ -96,6 +96,40 @@ export interface AuditLog {
   created_at: string
 }
 
+export type AccessDirection = 'in' | 'out'
+export type AccessSource = 'manual' | 'sync' | 'api'
+export type SyncStatus = 'success' | 'failed' | 'partial'
+
+export interface AccessRecord {
+  id: string
+  visitor_id: string | null
+  name: string
+  company: string | null
+  direction: AccessDirection
+  access_point: string | null
+  recorded_at: string
+  source: AccessSource
+  external_id: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  visitor?: Pick<Visitor, 'id' | 'name' | 'company'>
+}
+
+export interface SyncLog {
+  id: string
+  sync_type: string
+  status: SyncStatus
+  records_fetched: number
+  records_created: number
+  records_updated: number
+  error_message: string | null
+  started_at: string
+  completed_at: string | null
+  created_at: string
+}
+
 export type Permission =
   | 'visitors.create'
   | 'visitors.read.all'
@@ -111,3 +145,6 @@ export type Permission =
   | 'meetings.delete'
   | 'users.manage'
   | 'audit.read'
+  | 'access.read'
+  | 'access.create'
+  | 'access.sync'

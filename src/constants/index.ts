@@ -1,4 +1,4 @@
-import type { UserRole, VisitorPurpose, VisitorStatus, MeetingStatus } from '@/types'
+import type { UserRole, VisitorPurpose, VisitorStatus, MeetingStatus, AccessDirection, AccessSource } from '@/types'
 
 export const ROLES: Record<UserRole, string> = {
   admin: '관리자',
@@ -28,4 +28,15 @@ export const MEETING_STATUSES: Record<MeetingStatus, string> = {
   in_progress: '진행 중',
   completed: '완료',
   cancelled: '취소',
+}
+
+export const ACCESS_DIRECTIONS: Record<AccessDirection, string> = {
+  in: '입장',
+  out: '퇴장',
+}
+
+export const ACCESS_SOURCES: Record<AccessSource, string> = {
+  manual: '수동',
+  sync: '동기화',
+  api: 'API',
 }

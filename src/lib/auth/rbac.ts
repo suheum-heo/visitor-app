@@ -8,6 +8,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'meetings.create', 'meetings.read.all', 'meetings.read.own',
     'meetings.update.all', 'meetings.update.own', 'meetings.delete',
     'users.manage', 'audit.read',
+    'access.read', 'access.create', 'access.sync',
   ],
   manager: [
     'visitors.create', 'visitors.read.all', 'visitors.read.own',
@@ -15,6 +16,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'meetings.create', 'meetings.read.all', 'meetings.read.own',
     'meetings.update.all', 'meetings.update.own', 'meetings.delete',
     'audit.read',
+    'access.read',
   ],
   staff: [
     'visitors.create', 'visitors.read.own', 'visitors.update.own',
@@ -23,6 +25,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   security: [
     'visitors.create', 'visitors.read.all', 'visitors.read.own',
     'visitors.update.all', 'visitors.update.own',
+    'access.read', 'access.create', 'access.sync',
   ],
   guest: [],
 }
