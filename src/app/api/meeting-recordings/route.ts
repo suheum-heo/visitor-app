@@ -122,10 +122,16 @@ export async function POST(request: NextRequest) {
     `
 
     try {
-      await transcribeRecording(publicUrl, mimeType)
-      // TODO: Whisper API 연동 후 transcription_text 저장 및 status = 'done'
+      const transcriptionText = await transcribeRecording(publicUrl, mimeType)
+      await sql`
+        UPDATE meeting_recordings
+        SET
+          transcription_status = 'done',
+          transcription_text = ${transcriptionText},
+          updated_at = now()
+        WHERE id = ${recording.id}
+      `
     } catch {
-      // Stub 단계에서는 pending으로 유지 (Whisper 미구현)
       await sql`
         UPDATE meeting_recordings
         SET transcription_status = 'pending', updated_at = now()
