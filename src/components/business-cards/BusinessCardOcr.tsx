@@ -17,13 +17,27 @@ interface OcrData {
   ocr_raw: Record<string, unknown>
 }
 
+export interface BusinessCardExtracted {
+  name: string
+  company: string
+  position: string
+  phone: string
+  email: string
+}
+
 interface BusinessCardOcrProps {
   visitorId?: string
   meetingId?: string
   onSaved?: () => void
+  onExtracted?: (data: BusinessCardExtracted) => void
 }
 
-export default function BusinessCardOcr({ visitorId, meetingId, onSaved }: BusinessCardOcrProps) {
+export default function BusinessCardOcr({
+  visitorId,
+  meetingId,
+  onSaved,
+  onExtracted,
+}: BusinessCardOcrProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [scanning, setScanning] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -53,14 +67,16 @@ export default function BusinessCardOcr({ visitorId, meetingId, onSaved }: Busin
       }
 
       const { data } = await res.json() as { data: OcrData }
-      setOcr(data)
-      setForm({
+      const extracted = {
         name: data.name ?? '',
         company: data.company ?? '',
         position: data.position ?? '',
         phone: data.phone ?? '',
         email: data.email ?? '',
-      })
+      }
+      setOcr(data)
+      setForm(extracted)
+      onExtracted?.(extracted)
       toast.success('명함 정보를 추출했습니다. 내용을 확인 후 저장하세요.')
     } finally {
       setScanning(false)

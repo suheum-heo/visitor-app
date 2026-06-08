@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,13 +17,26 @@ import { VISITOR_PURPOSES } from '@/constants'
 import { toast } from 'sonner'
 import type { Visitor, User, VisitorPurpose } from '@/types'
 
+export interface VisitorFormOcrPrefill {
+  name?: string
+  company?: string
+  phone?: string
+  email?: string
+}
+
 interface VisitorFormProps {
   visitor?: Visitor
   hosts: Pick<User, 'id' | 'name' | 'email'>[]
   currentUserId: string
+  ocrPrefill?: VisitorFormOcrPrefill | null
 }
 
-export default function VisitorForm({ visitor, hosts, currentUserId }: VisitorFormProps) {
+export default function VisitorForm({
+  visitor,
+  hosts,
+  currentUserId,
+  ocrPrefill,
+}: VisitorFormProps) {
   const router = useRouter()
   const isEdit = !!visitor
 
@@ -40,6 +53,17 @@ export default function VisitorForm({ visitor, hosts, currentUserId }: VisitorFo
       : '',
     notes: visitor?.notes ?? '',
   })
+
+  useEffect(() => {
+    if (!ocrPrefill) return
+    setForm((prev) => ({
+      ...prev,
+      name: ocrPrefill.name ?? prev.name,
+      company: ocrPrefill.company ?? prev.company,
+      phone: ocrPrefill.phone ?? prev.phone,
+      email: ocrPrefill.email ?? prev.email,
+    }))
+  }, [ocrPrefill])
 
   function handleChange(field: string, value: string | null) {
     setForm((prev) => ({ ...prev, [field]: value ?? '' }))

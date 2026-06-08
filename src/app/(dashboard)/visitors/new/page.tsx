@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import sql from '@/lib/db'
-import VisitorForm from '@/components/visitors/VisitorForm'
+import VisitorFormWithOcr from '@/components/visitors/VisitorFormWithOcr'
 
 export default async function NewVisitorPage() {
   const session = await auth()
@@ -15,10 +15,10 @@ export default async function NewVisitorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">방문객 등록</h1>
-        <p className="text-sm text-gray-500 mt-1">새 방문객 정보를 입력하세요.</p>
+        <p className="text-sm text-gray-500 mt-1">명함 스캔으로 정보를 자동 입력하거나 직접 입력하세요.</p>
       </div>
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <VisitorForm hosts={hosts} currentUserId={session.user.id} />
+        <VisitorFormWithOcr hosts={hosts} currentUserId={session.user.id} />
       </div>
     </div>
   )
