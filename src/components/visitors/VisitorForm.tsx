@@ -2,10 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -17,6 +26,17 @@ import { VISITOR_PURPOSES } from '@/constants'
 import { toast } from 'sonner'
 import { userSelectItems } from '@/lib/select-items'
 import type { Visitor, User, VisitorPurpose } from '@/types'
+
+interface DuplicateMatch {
+  id: string
+  name: string
+  company: string | null
+  email: string | null
+  phone: string | null
+  status: string
+  scheduled_at: string | null
+  similarity: number
+}
 
 export interface VisitorFormOcrPrefill {
   name?: string
@@ -42,6 +62,9 @@ export default function VisitorForm({
   const isEdit = !!visitor
 
   const [loading, setLoading] = useState(false)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([])
+  const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false)
   const hostItems = userSelectItems(hosts)
   const purposeItems = Object.entries(VISITOR_PURPOSES).map(([value, label]) => ({
     value,
@@ -75,13 +98,7 @@ export default function VisitorForm({
     setForm((prev) => ({ ...prev, [field]: value ?? '' }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.name.trim()) {
-      toast.error('이름을 입력해주세요.')
-      return
-    }
-
+  async function saveVisitor() {
     setLoading(true)
     try {
       const url = isEdit ? `/api/visitors/${visitor!.id}` : '/api/visitors'
@@ -108,6 +125,38 @@ export default function VisitorForm({
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name.trim()) {
+      toast.error('이름을 입력해주세요.')
+      return
+    }
+
+    if (!isEdit && !skipDuplicateCheck) {
+      const params = new URLSearchParams({
+        name: form.name.trim(),
+        company: form.company.trim(),
+      })
+      const dupRes = await fetch(`/api/visitors/check-duplicate?${params.toString()}`)
+      if (dupRes.ok) {
+        const { data, hasDuplicates } = await dupRes.json()
+        if (hasDuplicates && Array.isArray(data) && data.length > 0) {
+          setDuplicates(data)
+          setDuplicateOpen(true)
+          return
+        }
+      }
+    }
+
+    await saveVisitor()
+  }
+
+  async function handleConfirmSaveDespiteDuplicates() {
+    setDuplicateOpen(false)
+    setSkipDuplicateCheck(true)
+    await saveVisitor()
   }
 
   return (
@@ -230,6 +279,47 @@ export default function VisitorForm({
           취소
         </Button>
       </div>
+
+      <Dialog open={duplicateOpen} onOpenChange={setDuplicateOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>유사한 방문객이 있습니다</DialogTitle>
+            <DialogDescription>
+              동일하거나 유사한 이름·회사 조합의 방문객이 이미 등록되어 있습니다. 계속 등록하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-60 overflow-y-auto divide-y divide-gray-100 text-sm">
+            {duplicates.map((match) => (
+              <li key={match.id} className="py-3 flex items-start justify-between gap-3">
+                <div>
+                  <Link
+                    href={`/visitors/${match.id}`}
+                    className="font-medium text-blue-600 hover:underline"
+                    target="_blank"
+                  >
+                    {match.name}
+                  </Link>
+                  <p className="text-gray-500">
+                    {match.company ?? '회사 미입력'}
+                    {match.email ? ` · ${match.email}` : ''}
+                  </p>
+                </div>
+                <span className="text-xs text-gray-400 shrink-0">
+                  {Math.round(match.similarity * 100)}% 유사
+                </span>
+              </li>
+            ))}
+          </ul>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDuplicateOpen(false)}>
+              취소
+            </Button>
+            <Button type="button" onClick={handleConfirmSaveDespiteDuplicates} disabled={loading}>
+              그래도 등록
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

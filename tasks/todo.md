@@ -1,42 +1,30 @@
-# visitor-app — Phase 4
+# visitor-app — Phase 5
 
-현재 Phase: **Phase 4 (운영화)**  
+현재 Phase: **Phase 5 (고도화)**  
 시작일: 2026-06-08
 
 ---
 
-## Phase 4 체크리스트
+## Phase 5 체크리스트
 
-### Module 1: 감사 로그 완성
-- [x] `db/migrations/010_phase4_audit_soft_delete.sql`
-- [x] `src/lib/audit.ts` — `logAudit()` helper
-- [x] 모든 민감 액션에 logAudit 적용 + 파일 다운로드 API
-- [x] `pnpm build` 성공
+### Feature 1: 중복 방문객 감지
+- [ ] `GET /api/visitors/check-duplicate`
+- [ ] 유사도 매칭 lib + VisitorForm 경고 모달
+- [ ] `pnpm build` 성공
 
-### Module 2: 데이터 보관 기간 정책
-- [x] `src/app/api/cron/data-retention/route.ts`
-- [x] `vercel.json` cron `0 0 * * *` 추가
-- [x] soft delete → 6개월 후 영구 삭제
-- [x] `pnpm build` 성공
+### Feature 2: 자동 전사 (Google Speech-to-Text)
+- [ ] `whisper.ts` → Google Speech REST API
+- [ ] meeting-recordings 전사 완료 저장
+- [ ] `GOOGLE_SPEECH_API_KEY` in `.env.example`
+- [ ] `pnpm build` 성공
 
-### Module 3: 모니터링
-- [x] `src/app/api/health/route.ts`
-- [x] Error boundary 컴포넌트
-- [x] `pnpm build` 성공
+### Feature 3: 태그 기반 검색
+- [ ] migration 011 tags
+- [ ] 등록 폼 태그 UI + search API/페이지 필터
+- [ ] `pnpm build` 성공
 
-### 배포 전 확인
-- [ ] Neon에 migration 010 적용
-- [ ] CRON_SECRET 설정 (data-retention cron)
-
----
-
-## Review Section
-
-**Phase 4 완료 (2026-06-08)**
-
-3개 모듈 모두 구현 및 `pnpm build` 통과. 커밋 2건 push:
-
-1. `feat(audit)` — logAudit + soft delete + data-retention cron
-2. `feat(monitoring)` — /api/health + error boundaries
-
-**다음 단계:** migration 010 적용, health/cron 엔드포인트 운영 확인.
+### Feature 4: 이상 출입 알림
+- [ ] 출입 기록 생성 후 이상 탐지
+- [ ] Resend 이메일 → admin
+- [ ] `RESEND_API_KEY` in `.env.example`
+- [ ] `pnpm build` 성공
