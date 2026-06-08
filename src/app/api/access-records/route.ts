@@ -2,8 +2,9 @@ import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import { logAudit } from '@/lib/audit'
+import { handleAccessRecordAnomalies } from '@/lib/alerts/accessAnomaly'
 import { NextResponse, type NextRequest } from 'next/server'
-import type { UserRole } from '@/types'
+import type { AccessRecord, UserRole } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -108,7 +109,9 @@ export async function POST(request: NextRequest) {
       newData: record as Record<string, unknown>,
     })
 
-    return NextResponse.json({ data: record }, { status: 201 })
+    const anomalies = await handleAccessRecordAnomalies(record as AccessRecord)
+
+    return NextResponse.json({ data: record, anomalies }, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
