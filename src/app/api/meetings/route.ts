@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import { logAudit } from '@/lib/audit'
+import { parseTags } from '@/lib/tags'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 
@@ -67,17 +68,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, zoom_link } = body
+    const tags = parseTags(body.tags)
 
     if (!title || !host_id || !scheduled_at) {
       return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 })
     }
 
     const [meeting] = await sql`
-      INSERT INTO meetings (title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, zoom_link, created_by)
+      INSERT INTO meetings (title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, zoom_link, tags, created_by)
       VALUES (
         ${title}, ${description ?? null}, ${host_id}, ${visitor_id ?? null},
         ${location ?? null}, ${scheduled_at}, ${duration_minutes ?? 60}, ${notes ?? null},
-        ${zoom_link ?? null}, ${session.user.id}
+        ${zoom_link ?? null}, ${tags}, ${session.user.id}
       )
       RETURNING *
     `

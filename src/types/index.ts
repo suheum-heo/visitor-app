@@ -30,6 +30,7 @@ export interface Visitor {
   arrived_at: string | null
   departed_at: string | null
   notes: string | null
+  tags: string[]
   deleted_at: string | null
   created_by: string
   created_at: string
@@ -50,6 +51,7 @@ export interface Meeting {
   status: MeetingStatus
   notes: string | null
   zoom_link: string | null
+  tags: string[]
   deleted_at: string | null
   created_by: string
   created_at: string

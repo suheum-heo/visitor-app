@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select'
 import { VISITOR_PURPOSES } from '@/constants'
 import { toast } from 'sonner'
+import TagInput from '@/components/ui/TagInput'
 import { userSelectItems } from '@/lib/select-items'
 import type { Visitor, User, VisitorPurpose } from '@/types'
 
@@ -81,6 +82,7 @@ export default function VisitorForm({
       ? new Date(visitor.scheduled_at).toISOString().slice(0, 16)
       : '',
     notes: visitor?.notes ?? '',
+    tags: visitor?.tags ?? [] as string[],
   })
 
   useEffect(() => {
@@ -96,6 +98,10 @@ export default function VisitorForm({
 
   function handleChange(field: string, value: string | null) {
     setForm((prev) => ({ ...prev, [field]: value ?? '' }))
+  }
+
+  function handleTagsChange(tags: string[]) {
+    setForm((prev) => ({ ...prev, tags }))
   }
 
   async function saveVisitor() {
@@ -253,6 +259,11 @@ export default function VisitorForm({
           value={form.scheduled_at}
           onChange={(e) => handleChange('scheduled_at', e.target.value)}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="tags">태그</Label>
+        <TagInput id="tags" value={form.tags} onChange={handleTagsChange} />
       </div>
 
       <div className="space-y-2">

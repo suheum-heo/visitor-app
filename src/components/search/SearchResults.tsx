@@ -15,6 +15,7 @@ interface SearchVisitor {
   phone: string | null
   status: VisitorStatus
   scheduled_at: string | null
+  tags?: string[]
 }
 
 interface SearchMeeting {
@@ -25,6 +26,7 @@ interface SearchMeeting {
   status: MeetingStatus
   scheduled_at: string
   visitor: { id: string; name: string; company: string | null } | null
+  tags?: string[]
 }
 
 export default function SearchResults() {
@@ -35,9 +37,10 @@ export default function SearchResults() {
   const [queried, setQueried] = useState(false)
 
   const q = searchParams.get('q') ?? ''
+  const tags = searchParams.get('tags') ?? ''
 
   useEffect(() => {
-    if (!q.trim()) {
+    if (!q.trim() && !tags.trim()) {
       setVisitors([])
       setMeetings([])
       setQueried(false)
@@ -54,10 +57,10 @@ export default function SearchResults() {
         setQueried(true)
       })
       .finally(() => setLoading(false))
-  }, [searchParams, q])
+  }, [searchParams, q, tags])
 
-  if (!q.trim()) {
-    return <p className="text-sm text-gray-500">검색어를 입력하세요.</p>
+  if (!q.trim() && !tags.trim()) {
+    return <p className="text-sm text-gray-500">검색어 또는 태그를 입력하세요.</p>
   }
 
   if (loading) {
@@ -65,7 +68,8 @@ export default function SearchResults() {
   }
 
   if (queried && visitors.length === 0 && meetings.length === 0) {
-    return <p className="text-sm text-gray-500">&quot;{q}&quot;에 대한 결과가 없습니다.</p>
+    const label = [q && `"${q}"`, tags && `태그: ${tags}`].filter(Boolean).join(' · ')
+    return <p className="text-sm text-gray-500">{label}에 대한 결과가 없습니다.</p>
   }
 
   return (
@@ -83,6 +87,7 @@ export default function SearchResults() {
                   <p className="text-sm text-gray-500">
                     {v.company ?? '—'}
                     {v.scheduled_at ? ` · ${new Date(v.scheduled_at).toLocaleDateString('ko-KR')}` : ''}
+                    {v.tags?.length ? ` · ${v.tags.join(', ')}` : ''}
                   </p>
                 </div>
                 <Badge variant="outline">{VISITOR_STATUSES[v.status]}</Badge>
@@ -106,6 +111,7 @@ export default function SearchResults() {
                     {new Date(m.scheduled_at).toLocaleString('ko-KR')}
                     {m.location ? ` · ${m.location}` : ''}
                     {m.visitor ? ` · ${m.visitor.name}` : ''}
+                    {m.tags?.length ? ` · ${m.tags.join(', ')}` : ''}
                   </p>
                 </div>
                 <Badge variant="outline">{MEETING_STATUSES[m.status]}</Badge>

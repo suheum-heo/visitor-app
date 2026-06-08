@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import TagInput from '@/components/ui/TagInput'
 import { userSelectItems, visitorSelectItems } from '@/lib/select-items'
 import type { Meeting, User, Visitor } from '@/types'
 
@@ -43,10 +44,15 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
     duration_minutes: String(meeting?.duration_minutes ?? '60'),
     notes: meeting?.notes ?? '',
     zoom_link: meeting?.zoom_link ?? '',
+    tags: meeting?.tags ?? [] as string[],
   })
 
   function handleChange(field: string, value: string | null) {
     setForm((prev) => ({ ...prev, [field]: value ?? '' }))
+  }
+
+  function handleTagsChange(tags: string[]) {
+    setForm((prev) => ({ ...prev, tags }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -195,6 +201,11 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
           onChange={(e) => handleChange('zoom_link', e.target.value)}
           placeholder="https://zoom.us/j/..."
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="tags">태그</Label>
+        <TagInput id="tags" value={form.tags} onChange={handleTagsChange} />
       </div>
 
       <div className="space-y-2">

@@ -56,10 +56,14 @@ export async function PATCH(
     }
 
     const body = await request.json() as Record<string, string | number | boolean | null>
-    const allowed = ['name', 'company', 'phone', 'email', 'purpose', 'host_id', 'status', 'scheduled_at', 'arrived_at', 'departed_at', 'notes']
-    const updates: Record<string, string | number | boolean | null> = Object.fromEntries(
+    const allowed = ['name', 'company', 'phone', 'email', 'purpose', 'host_id', 'status', 'scheduled_at', 'arrived_at', 'departed_at', 'notes', 'tags']
+    const updates: Record<string, string | number | boolean | string[] | null> = Object.fromEntries(
       Object.entries(body).filter(([k]) => allowed.includes(k))
     )
+    if ('tags' in updates) {
+      const { parseTags } = await import('@/lib/tags')
+      updates.tags = parseTags(body.tags)
+    }
 
     const [visitor] = await sql`
       UPDATE visitors SET ${sql(updates)}, updated_at = now()

@@ -28,6 +28,7 @@ export default function SearchForm() {
   const [type, setType] = useState(searchParams.get('type') ?? 'all')
   const [dateFrom, setDateFrom] = useState(searchParams.get('date_from') ?? '')
   const [dateTo, setDateTo] = useState(searchParams.get('date_to') ?? '')
+  const [tags, setTags] = useState(searchParams.get('tags') ?? '')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,6 +37,7 @@ export default function SearchForm() {
     if (type !== 'all') params.set('type', type)
     if (dateFrom) params.set('date_from', dateFrom)
     if (dateTo) params.set('date_to', dateTo)
+    if (tags.trim()) params.set('tags', tags.trim())
     router.push(`/search?${params.toString()}`)
   }
 
@@ -68,6 +70,16 @@ export default function SearchForm() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="search-tags">태그 (쉼표로 구분)</Label>
+        <Input
+          id="search-tags"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          placeholder="vip, partner"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
