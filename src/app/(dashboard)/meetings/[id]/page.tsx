@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import MeetingForm from '@/components/meetings/MeetingForm'
+import DocumentUpload from '@/components/meetings/DocumentUpload'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -94,12 +95,18 @@ export default async function MeetingDetailPage({ params }: PageProps) {
           </dl>
         </div>
 
-        {canEdit && (
-          <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">정보 수정</h2>
-            <MeetingForm meeting={m} hosts={hosts} visitors={visitors} currentUserId={session.user.id} />
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <DocumentUpload meetingId={m.id} canEdit={canEdit} />
           </div>
-        )}
+
+          {canEdit && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="font-semibold text-gray-900 mb-4">정보 수정</h2>
+              <MeetingForm meeting={m} hosts={hosts} visitors={visitors} currentUserId={session.user.id} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

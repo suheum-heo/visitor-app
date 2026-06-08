@@ -55,6 +55,19 @@ export interface Meeting {
   visitor?: Pick<Visitor, 'id' | 'name' | 'company'>
 }
 
+export interface Document {
+  id: string
+  meeting_id: string
+  file_name: string
+  file_path: string
+  file_size: number
+  mime_type: string
+  uploaded_by: string
+  created_at: string
+  updated_at: string
+  uploader?: Pick<User, 'id' | 'name'>
+}
+
 export interface AuditLog {
   id: string
   user_id: string | null
