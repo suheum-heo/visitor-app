@@ -1,8 +1,9 @@
 import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
+import { encryptFile } from '@/lib/storage/encrypt'
 import { uploadFile } from '@/lib/storage/r2'
-import { transcribeRecording } from '@/lib/transcription/whisper'
+import { transcribeBuffer } from '@/lib/transcription/whisper'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 import { randomUUID } from 'crypto'
@@ -95,16 +96,17 @@ export async function POST(request: NextRequest) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const key = `recordings/${meetingId}/${randomUUID()}-${safeName}`
     const buffer = Buffer.from(await file.arrayBuffer())
-    const publicUrl = await uploadFile(key, buffer, mimeType)
+    const { ciphertext, iv, authTag } = encryptFile(buffer)
+    const publicUrl = await uploadFile(key, ciphertext, 'application/octet-stream')
 
     const [recording] = await sql`
       INSERT INTO meeting_recordings (
         meeting_id, file_name, file_path, file_size, mime_type,
-        transcription_status, uploaded_by
+        iv, auth_tag, transcription_status, uploaded_by
       )
       VALUES (
         ${meetingId}, ${file.name}, ${publicUrl}, ${file.size}, ${mimeType},
-        'pending', ${session.user.id}
+        ${iv}, ${authTag}, 'pending', ${session.user.id}
       )
       RETURNING *
     `
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
     `
 
     try {
-      const transcriptionText = await transcribeRecording(publicUrl, mimeType)
+      const transcriptionText = await transcribeBuffer(buffer, mimeType)
       await sql`
         UPDATE meeting_recordings
         SET

@@ -114,9 +114,7 @@ export default function RecordingUpload({ meetingId, canEdit }: RecordingUploadP
             <li key={rec.id} className="px-4 py-3 text-sm space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <a
-                  href={rec.file_path}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={`/api/meeting-recordings/download?id=${rec.id}`}
                   className="flex items-center gap-2 text-blue-600 hover:underline min-w-0"
                 >
                   <Mic className="h-4 w-4 shrink-0" />

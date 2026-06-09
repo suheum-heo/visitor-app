@@ -13,6 +13,11 @@ export const r2 = new S3Client({
 const BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME!
 const PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL!
 
+export function extractR2Key(filePath: string): string | null {
+  if (!PUBLIC_URL || !filePath.startsWith(PUBLIC_URL)) return null
+  return filePath.slice(PUBLIC_URL.length + 1)
+}
+
 export async function uploadFile(key: string, body: Buffer | Uint8Array, contentType: string) {
   await r2.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body, ContentType: contentType }))
   return `${PUBLIC_URL}/${key}`

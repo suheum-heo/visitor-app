@@ -1,7 +1,8 @@
 import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
-import { uploadFile, deleteFile } from '@/lib/storage/r2'
+import { encryptFile } from '@/lib/storage/encrypt'
+import { uploadFile, deleteFile, extractR2Key } from '@/lib/storage/r2'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 import { randomUUID } from 'crypto'
@@ -98,11 +99,15 @@ export async function POST(request: NextRequest) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const key = `documents/${meetingId}/${randomUUID()}-${safeName}`
     const buffer = Buffer.from(await file.arrayBuffer())
-    const publicUrl = await uploadFile(key, buffer, mimeType)
+    const { ciphertext, iv, authTag } = encryptFile(buffer)
+    const publicUrl = await uploadFile(key, ciphertext, 'application/octet-stream')
 
     const [doc] = await sql`
-      INSERT INTO documents (meeting_id, file_name, file_path, file_size, mime_type, uploaded_by)
-      VALUES (${meetingId}, ${file.name}, ${publicUrl}, ${file.size}, ${mimeType}, ${session.user.id})
+      INSERT INTO documents (meeting_id, file_name, file_path, file_size, mime_type, iv, auth_tag, uploaded_by)
+      VALUES (
+        ${meetingId}, ${file.name}, ${publicUrl}, ${file.size}, ${mimeType},
+        ${iv}, ${authTag}, ${session.user.id}
+      )
       RETURNING *
     `
 
@@ -139,10 +144,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const url = doc.file_path as string
-    const publicBase = process.env.CLOUDFLARE_R2_PUBLIC_URL
-    if (publicBase && url.startsWith(publicBase)) {
-      const key = url.slice(publicBase.length + 1)
+    const key = extractR2Key(doc.file_path as string)
+    if (key) {
       try {
         await deleteFile(key)
       } catch {

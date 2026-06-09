@@ -56,13 +56,12 @@ async function generateTranscript(
 }
 
 /**
- * Transcribe a recording stored at a public R2 URL via Gemini audio understanding.
+ * Transcribe audio/video bytes via Gemini audio understanding.
  */
-export async function transcribeRecording(filePath: string, mimeType: string): Promise<string> {
+export async function transcribeBuffer(buffer: Buffer, mimeType: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim()
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
 
-  const buffer = await fetchAudioBuffer(filePath)
   const audioBase64 = buffer.toString('base64')
   const genAI = new GoogleGenerativeAI(apiKey)
   const models = getModelFallbacks()
@@ -94,4 +93,12 @@ export async function transcribeRecording(filePath: string, mimeType: string): P
     )
   }
   throw new Error(`Gemini transcription error: ${lastError}`)
+}
+
+/**
+ * Transcribe a recording stored at a public R2 URL via Gemini audio understanding.
+ */
+export async function transcribeRecording(filePath: string, mimeType: string): Promise<string> {
+  const buffer = await fetchAudioBuffer(filePath)
+  return transcribeBuffer(buffer, mimeType)
 }

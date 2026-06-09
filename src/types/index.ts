@@ -69,6 +69,8 @@ export interface MeetingRecording {
   file_path: string
   file_size: number
   mime_type: string
+  iv: string | null
+  auth_tag: string | null
   transcription_status: TranscriptionStatus
   transcription_text: string | null
   uploaded_by: string
@@ -122,6 +124,8 @@ export interface Document {
   file_path: string
   file_size: number
   mime_type: string
+  iv: string | null
+  auth_tag: string | null
   uploaded_by: string
   created_at: string
   updated_at: string

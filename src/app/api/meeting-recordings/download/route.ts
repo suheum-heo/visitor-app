@@ -19,46 +19,50 @@ export async function GET(request: NextRequest) {
     const canReadAll = hasPermission(role, 'meetings.read.all')
     const userId = session.user.id
 
-    const [doc] = await sql`
-      SELECT d.*, m.host_id, m.created_by as meeting_created_by, m.deleted_at as meeting_deleted_at
-      FROM documents d
-      JOIN meetings m ON d.meeting_id = m.id
-      WHERE d.id = ${id}
+    const [recording] = await sql`
+      SELECT mr.*, m.host_id, m.created_by as meeting_created_by, m.deleted_at as meeting_deleted_at
+      FROM meeting_recordings mr
+      JOIN meetings m ON mr.meeting_id = m.id
+      WHERE mr.id = ${id}
     `
-    if (!doc || doc.meeting_deleted_at) {
+    if (!recording || recording.meeting_deleted_at) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    if (!canReadAll && doc.host_id !== userId && doc.meeting_created_by !== userId) {
+    if (
+      !canReadAll &&
+      recording.host_id !== userId &&
+      recording.meeting_created_by !== userId
+    ) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     await logAudit({
       userId: session.user.id,
       action: 'download',
-      resourceType: 'documents',
+      resourceType: 'meeting_recordings',
       resourceId: id,
       request,
       newData: {
-        file_name: doc.file_name,
-        meeting_id: doc.meeting_id,
+        file_name: recording.file_name,
+        meeting_id: recording.meeting_id,
       },
     })
 
-    if (!isEncrypted(doc.iv, doc.auth_tag)) {
-      return NextResponse.redirect(doc.file_path as string)
+    if (!isEncrypted(recording.iv, recording.auth_tag)) {
+      return NextResponse.redirect(recording.file_path as string)
     }
 
     const contents = await resolveFileContents(
-      doc.file_path as string,
-      doc.iv as string,
-      doc.auth_tag as string
+      recording.file_path as string,
+      recording.iv as string,
+      recording.auth_tag as string
     )
 
     return new NextResponse(new Uint8Array(contents), {
       headers: {
-        'Content-Type': doc.mime_type as string,
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(doc.file_name as string)}"`,
+        'Content-Type': recording.mime_type as string,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(recording.file_name as string)}"`,
         'Content-Length': String(contents.length),
       },
     })
