@@ -1,29 +1,33 @@
-interface SpeechEncodingConfig {
-  encoding: string
-  sampleRateHertz?: number
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
+const TRANSCRIPTION_PROMPT = `Transcribe this audio recording accurately.
+Return only the spoken transcript text with natural punctuation.
+Preserve the original language (Korean and/or English). Do not add commentary, labels, or markdown.`
+
+const DEFAULT_MODEL_FALLBACKS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-1.5-flash',
+]
+
+const MAX_RETRIES_PER_MODEL = 2
+const RETRY_BASE_DELAY_MS = 800
+
+function getModelFallbacks(): string[] {
+  const configured = process.env.GEMINI_MODEL?.trim()
+  const models = configured
+    ? [configured, ...DEFAULT_MODEL_FALLBACKS]
+    : DEFAULT_MODEL_FALLBACKS
+  return [...new Set(models)]
 }
 
-const MIME_ENCODING: Record<string, SpeechEncodingConfig> = {
-  'audio/mpeg': { encoding: 'MP3' },
-  'audio/mp4': { encoding: 'MP3' },
-  'audio/wav': { encoding: 'LINEAR16', sampleRateHertz: 16000 },
-  'audio/webm': { encoding: 'WEBM_OPUS' },
-  'audio/ogg': { encoding: 'OGG_OPUS' },
-  'video/mp4': { encoding: 'MP3' },
-  'video/webm': { encoding: 'WEBM_OPUS' },
-  'video/quicktime': { encoding: 'MP3' },
+function isRetryableError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  return /503|429|high demand|unavailable|overloaded|resource exhausted/i.test(message)
 }
 
-const SYNC_MAX_BYTES = 9 * 1024 * 1024 // ~1 min audio at high bitrate
-
-function getApiKey(): string {
-  const key = process.env.GOOGLE_SPEECH_API_KEY?.trim()
-  if (!key) throw new Error('GOOGLE_SPEECH_API_KEY is not configured')
-  return key
-}
-
-function getEncodingConfig(mimeType: string): SpeechEncodingConfig {
-  return MIME_ENCODING[mimeType] ?? { encoding: 'ENCODING_UNSPECIFIED' }
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 async function fetchAudioBuffer(filePath: string): Promise<Buffer> {
@@ -32,117 +36,62 @@ async function fetchAudioBuffer(filePath: string): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer())
 }
 
-function extractTranscript(payload: {
-  results?: Array<{ alternatives?: Array<{ transcript?: string }> }>
-}): string {
-  const parts =
-    payload.results
-      ?.map((r) => r.alternatives?.[0]?.transcript?.trim())
-      .filter((t): t is string => !!t) ?? []
-  return parts.join('\n').trim()
-}
-
-async function recognizeSync(
+async function generateTranscript(
+  genAI: GoogleGenerativeAI,
+  modelName: string,
   audioBase64: string,
-  mimeType: string,
-  apiKey: string
+  mimeType: string
 ): Promise<string> {
-  const encodingConfig = getEncodingConfig(mimeType)
-  const res = await fetch(
-    `https://speech.googleapis.com/v1/speech:recognize?key=${encodeURIComponent(apiKey)}`,
+  const model = genAI.getGenerativeModel({ model: modelName })
+  const result = await model.generateContent([
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        config: {
-          ...encodingConfig,
-          languageCode: 'ko-KR',
-          enableAutomaticPunctuation: true,
-          alternativeLanguageCodes: ['en-US'],
-        },
-        audio: { content: audioBase64 },
-      }),
-    }
-  )
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Speech-to-Text recognize failed: ${res.status} ${err}`)
-  }
-
-  const data = await res.json()
-  const text = extractTranscript(data)
-  if (!text) throw new Error('Speech-to-Text returned empty transcript')
-  return text
-}
-
-async function recognizeLongRunning(
-  audioBase64: string,
-  mimeType: string,
-  apiKey: string
-): Promise<string> {
-  const encodingConfig = getEncodingConfig(mimeType)
-  const startRes = await fetch(
-    `https://speech.googleapis.com/v1/speech:longrunningrecognize?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        config: {
-          ...encodingConfig,
-          languageCode: 'ko-KR',
-          enableAutomaticPunctuation: true,
-          alternativeLanguageCodes: ['en-US'],
-        },
-        audio: { content: audioBase64 },
-      }),
-    }
-  )
-
-  if (!startRes.ok) {
-    const err = await startRes.text()
-    throw new Error(`Speech-to-Text longrunningrecognize failed: ${startRes.status} ${err}`)
-  }
-
-  const started = await startRes.json() as { name?: string }
-  if (!started.name) throw new Error('Speech-to-Text long operation missing name')
-
-  const deadline = Date.now() + 5 * 60 * 1000
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 3000))
-    const opRes = await fetch(
-      `https://speech.googleapis.com/v1/${started.name}?key=${encodeURIComponent(apiKey)}`
-    )
-    if (!opRes.ok) {
-      const err = await opRes.text()
-      throw new Error(`Speech-to-Text operation poll failed: ${opRes.status} ${err}`)
-    }
-    const op = await opRes.json() as {
-      done?: boolean
-      error?: { message?: string }
-      response?: { results?: Array<{ alternatives?: Array<{ transcript?: string }> }> }
-    }
-    if (op.error?.message) throw new Error(op.error.message)
-    if (op.done) {
-      const text = extractTranscript(op.response ?? {})
-      if (!text) throw new Error('Speech-to-Text returned empty transcript')
-      return text
-    }
-  }
-
-  throw new Error('Speech-to-Text long operation timed out')
+      inlineData: {
+        data: audioBase64,
+        mimeType,
+      },
+    },
+    { text: TRANSCRIPTION_PROMPT },
+  ])
+  return result.response.text().trim()
 }
 
 /**
- * Transcribe a recording stored at a public R2 URL via Google Speech-to-Text REST API.
+ * Transcribe a recording stored at a public R2 URL via Gemini audio understanding.
  */
 export async function transcribeRecording(filePath: string, mimeType: string): Promise<string> {
-  const apiKey = getApiKey()
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
+
   const buffer = await fetchAudioBuffer(filePath)
   const audioBase64 = buffer.toString('base64')
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const models = getModelFallbacks()
+  const errors: string[] = []
 
-  if (buffer.length <= SYNC_MAX_BYTES) {
-    return recognizeSync(audioBase64, mimeType, apiKey)
+  for (const modelName of models) {
+    for (let attempt = 0; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
+      try {
+        const text = await generateTranscript(genAI, modelName, audioBase64, mimeType)
+        if (!text) throw new Error('Gemini returned empty transcript')
+        return text
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        errors.push(`${modelName} (attempt ${attempt + 1}): ${message}`)
+
+        if (isRetryableError(err) && attempt < MAX_RETRIES_PER_MODEL) {
+          await sleep(RETRY_BASE_DELAY_MS * (attempt + 1))
+          continue
+        }
+        break
+      }
+    }
   }
-  return recognizeLongRunning(audioBase64, mimeType, apiKey)
+
+  const lastError = errors.at(-1) ?? 'Unknown error'
+  if (isRetryableError(lastError)) {
+    throw new Error(
+      'Gemini transcription API is temporarily overloaded. Please wait a moment and try again.'
+    )
+  }
+  throw new Error(`Gemini transcription error: ${lastError}`)
 }
