@@ -54,18 +54,29 @@ async function runDataRetention(request: NextRequest) {
       SELECT COUNT(*)::text as count FROM deleted
     `
 
+    const [{ count: tripsDeleted }] = await sql<{ count: string }[]>`
+      WITH deleted AS (
+        DELETE FROM business_trips
+        WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '6 months'
+        RETURNING id
+      )
+      SELECT COUNT(*)::text as count FROM deleted
+    `
+
     const summary = {
       access_records_deleted: parseInt(accessDeleted),
       audit_logs_deleted: parseInt(auditDeleted),
       visitors_purged: parseInt(visitorsDeleted),
       meetings_purged: parseInt(meetingsDeleted),
+      trips_purged: parseInt(tripsDeleted),
     }
 
     const totalDeleted =
       summary.access_records_deleted +
       summary.audit_logs_deleted +
       summary.visitors_purged +
-      summary.meetings_purged
+      summary.meetings_purged +
+      summary.trips_purged
 
     const [syncLog] = await sql`
       INSERT INTO sync_logs (

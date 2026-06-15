@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
         AND (
           ${search ?? null}::text IS NULL OR
           ar.name ILIKE ${'%' + (search ?? '') + '%'} OR
-          ar.company ILIKE ${'%' + (search ?? '') + '%'}
+          ar.company ILIKE ${'%' + (search ?? '') + '%'} OR
+          ar.vehicle_number ILIKE ${'%' + (search ?? '') + '%'}
         )
       ORDER BY ar.recorded_at DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -54,7 +55,8 @@ export async function GET(request: NextRequest) {
         AND (
           ${search ?? null}::text IS NULL OR
           ar.name ILIKE ${'%' + (search ?? '') + '%'} OR
-          ar.company ILIKE ${'%' + (search ?? '') + '%'}
+          ar.company ILIKE ${'%' + (search ?? '') + '%'} OR
+          ar.vehicle_number ILIKE ${'%' + (search ?? '') + '%'}
         )
     `
 
@@ -75,19 +77,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, company, direction, access_point, recorded_at, visitor_id, notes } = body
+    const {
+      name, company, direction, access_point, recorded_at, visitor_id, notes,
+      record_category, vehicle_number, project_id,
+    } = body
 
-    if (!name || !direction || !['in', 'out'].includes(direction)) {
-      return NextResponse.json({ error: '이름과 입퇴장 방향은 필수입니다.' }, { status: 400 })
+    const category = record_category ?? 'person'
+    const resolvedName = (name?.trim() || vehicle_number?.trim() || '').trim()
+
+    if (!resolvedName || !direction || !['in', 'out'].includes(direction)) {
+      return NextResponse.json({ error: '이름(또는 차량번호)과 입퇴장 방향은 필수입니다.' }, { status: 400 })
+    }
+
+    if (!['person', 'vehicle', 'delivery'].includes(category)) {
+      return NextResponse.json({ error: '유효하지 않은 출입 유형입니다.' }, { status: 400 })
     }
 
     const [record] = await sql`
       INSERT INTO access_records (
         name, company, direction, access_point, recorded_at,
-        visitor_id, notes, source, created_by
+        visitor_id, notes, source, created_by,
+        record_category, vehicle_number, project_id
       )
       VALUES (
-        ${name},
+        ${resolvedName},
         ${company ?? null},
         ${direction},
         ${access_point ?? null},
@@ -95,7 +108,10 @@ export async function POST(request: NextRequest) {
         ${visitor_id ?? null},
         ${notes ?? null},
         'manual',
-        ${session.user.id}
+        ${session.user.id},
+        ${category},
+        ${vehicle_number ?? null},
+        ${project_id ?? null}
       )
       RETURNING *
     `

@@ -25,6 +25,7 @@ import {
 import { VISITOR_PURPOSES } from '@/constants'
 import { toast } from 'sonner'
 import TagInput from '@/components/ui/TagInput'
+import ProjectSelect from '@/components/projects/ProjectSelect'
 import { userSelectItems } from '@/lib/select-items'
 import type { Visitor, User, VisitorPurpose } from '@/types'
 
@@ -83,6 +84,7 @@ export default function VisitorForm({
       : '',
     notes: visitor?.notes ?? '',
     tags: visitor?.tags ?? [] as string[],
+    project_id: visitor?.project_id ?? '',
   })
 
   useEffect(() => {
@@ -116,6 +118,7 @@ export default function VisitorForm({
         body: JSON.stringify({
           ...form,
           scheduled_at: form.scheduled_at || null,
+          project_id: form.project_id || null,
         }),
       })
 
@@ -250,6 +253,11 @@ export default function VisitorForm({
           </Select>
         </div>
       </div>
+
+      <ProjectSelect
+        value={form.project_id}
+        onChange={(id) => handleChange('project_id', id)}
+      />
 
       <div className="space-y-2">
         <Label htmlFor="scheduled_at">방문 예정 시간</Label>

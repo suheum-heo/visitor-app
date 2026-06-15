@@ -14,19 +14,27 @@ export async function GET(
     const session = await auth()
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const [visitor] = await sql`
-      SELECT v.*,
-        json_build_object('id', u1.id, 'name', u1.name, 'email', u1.email, 'department', u1.department) as host,
-        json_build_object('id', u2.id, 'name', u2.name) as creator
-      FROM visitors v
-      LEFT JOIN users u1 ON v.host_id = u1.id
-      LEFT JOIN users u2 ON v.created_by = u2.id
-      WHERE v.id = ${id} AND v.deleted_at IS NULL
+    const [trip] = await sql`
+      SELECT bt.*,
+        json_build_object('id', u.id, 'name', u.name, 'email', u.email, 'department', u.department) as employee,
+        CASE WHEN p.id IS NOT NULL
+          THEN json_build_object('id', p.id, 'name', p.name, 'company', p.company)
+          ELSE null END as project
+      FROM business_trips bt
+      LEFT JOIN users u ON bt.employee_id = u.id
+      LEFT JOIN projects p ON bt.project_id = p.id
+      WHERE bt.id = ${id} AND bt.deleted_at IS NULL
     `
 
-    if (!visitor) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!trip) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    return NextResponse.json({ data: visitor })
+    const role = session.user.role as UserRole
+    const canReadAll = hasPermission(role, 'trips.read.all')
+    if (!canReadAll && trip.employee_id !== session.user.id && trip.created_by !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    return NextResponse.json({ data: trip })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -42,21 +50,24 @@ export async function PATCH(
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const role = session.user.role as UserRole
-    const canUpdateAll = hasPermission(role, 'visitors.update.all')
-    const canUpdateOwn = hasPermission(role, 'visitors.update.own')
+    const canUpdateAll = hasPermission(role, 'trips.update.all')
+    const canUpdateOwn = hasPermission(role, 'trips.update.own')
     if (!canUpdateAll && !canUpdateOwn) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const [existing] = await sql`SELECT * FROM visitors WHERE id = ${id} AND deleted_at IS NULL`
+    const [existing] = await sql`SELECT * FROM business_trips WHERE id = ${id} AND deleted_at IS NULL`
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    if (!canUpdateAll && existing.host_id !== session.user.id && existing.created_by !== session.user.id) {
+    if (!canUpdateAll && existing.employee_id !== session.user.id && existing.created_by !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await request.json() as Record<string, string | number | boolean | null>
-    const allowed = ['name', 'company', 'phone', 'email', 'purpose', 'host_id', 'status', 'scheduled_at', 'arrived_at', 'departed_at', 'notes', 'tags', 'project_id']
+    const allowed = [
+      'title', 'employee_id', 'company', 'location', 'project_id',
+      'purpose', 'scheduled_at', 'end_at', 'status', 'notes', 'tags',
+    ]
     const updates: Record<string, string | number | boolean | string[] | null> = Object.fromEntries(
       Object.entries(body).filter(([k]) => allowed.includes(k))
     )
@@ -68,8 +79,8 @@ export async function PATCH(
       updates.project_id = null
     }
 
-    const [visitor] = await sql`
-      UPDATE visitors SET ${sql(updates)}, updated_at = now()
+    const [trip] = await sql`
+      UPDATE business_trips SET ${sql(updates)}, updated_at = now()
       WHERE id = ${id}
       RETURNING *
     `
@@ -77,14 +88,14 @@ export async function PATCH(
     await logAudit({
       userId: session.user.id,
       action: 'update',
-      resourceType: 'visitors',
+      resourceType: 'business_trips',
       resourceId: id,
       request,
       oldData: existing as Record<string, unknown>,
-      newData: visitor as Record<string, unknown>,
+      newData: trip as Record<string, unknown>,
     })
 
-    return NextResponse.json({ data: visitor })
+    return NextResponse.json({ data: trip })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -100,15 +111,15 @@ export async function DELETE(
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const role = session.user.role as UserRole
-    if (!hasPermission(role, 'visitors.delete')) {
+    if (!hasPermission(role, 'trips.delete')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const [existing] = await sql`SELECT * FROM visitors WHERE id = ${id} AND deleted_at IS NULL`
+    const [existing] = await sql`SELECT * FROM business_trips WHERE id = ${id} AND deleted_at IS NULL`
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const [deleted] = await sql`
-      UPDATE visitors SET deleted_at = now(), updated_at = now()
+      UPDATE business_trips SET deleted_at = now(), updated_at = now()
       WHERE id = ${id}
       RETURNING *
     `
@@ -116,7 +127,7 @@ export async function DELETE(
     await logAudit({
       userId: session.user.id,
       action: 'delete',
-      resourceType: 'visitors',
+      resourceType: 'business_trips',
       resourceId: id,
       request,
       oldData: existing as Record<string, unknown>,

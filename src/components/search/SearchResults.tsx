@@ -4,122 +4,86 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { VISITOR_STATUSES, MEETING_STATUSES } from '@/constants'
-import type { VisitorStatus, MeetingStatus } from '@/types'
-
-interface SearchVisitor {
-  id: string
-  name: string
-  company: string | null
-  email: string | null
-  phone: string | null
-  status: VisitorStatus
-  scheduled_at: string | null
-  tags?: string[]
-}
-
-interface SearchMeeting {
-  id: string
-  title: string
-  description: string | null
-  location: string | null
-  status: MeetingStatus
-  scheduled_at: string
-  visitor: { id: string; name: string; company: string | null } | null
-  tags?: string[]
-}
+import { TIMELINE_TYPE_LABELS } from '@/constants'
+import type { TimelineItem } from '@/types'
 
 export default function SearchResults() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
-  const [visitors, setVisitors] = useState<SearchVisitor[]>([])
-  const [meetings, setMeetings] = useState<SearchMeeting[]>([])
+  const [items, setItems] = useState<TimelineItem[]>([])
   const [queried, setQueried] = useState(false)
 
-  const q = searchParams.get('q') ?? ''
+  const qCompany = searchParams.get('q_company') ?? searchParams.get('q') ?? ''
+  const qKeyword = searchParams.get('q_keyword') ?? ''
   const tags = searchParams.get('tags') ?? ''
 
+  const hasQuery = qCompany.trim() || qKeyword.trim() || tags.trim()
+
   useEffect(() => {
-    if (!q.trim() && !tags.trim()) {
-      setVisitors([])
-      setMeetings([])
+    if (!hasQuery) {
+      setItems([])
       setQueried(false)
       return
     }
 
     const params = new URLSearchParams(searchParams.toString())
     setLoading(true)
-    fetch(`/api/search?${params.toString()}`)
+    fetch(`/api/search/timeline?${params.toString()}`)
       .then((res) => res.json())
       .then((json) => {
-        setVisitors(json.data?.visitors ?? [])
-        setMeetings(json.data?.meetings ?? [])
+        setItems(json.data ?? [])
         setQueried(true)
       })
       .finally(() => setLoading(false))
-  }, [searchParams, q, tags])
+  }, [searchParams, hasQuery, qCompany, qKeyword, tags])
 
-  if (!q.trim() && !tags.trim()) {
-    return <p className="text-sm text-gray-500">검색어 또는 태그를 입력하세요.</p>
+  if (!hasQuery) {
+    return (
+      <p className="text-sm text-gray-500">
+        회사/프로젝트, 키워드, 또는 태그를 입력하면 방문·미팅·출장·출입 기록이 시간순으로 표시됩니다.
+      </p>
+    )
   }
 
   if (loading) {
     return <p className="text-sm text-gray-500">검색 중...</p>
   }
 
-  if (queried && visitors.length === 0 && meetings.length === 0) {
-    const label = [q && `"${q}"`, tags && `태그: ${tags}`].filter(Boolean).join(' · ')
+  if (queried && items.length === 0) {
+    const label = [
+      qCompany && `회사/프로젝트: "${qCompany}"`,
+      qKeyword && `키워드: "${qKeyword}"`,
+      tags && `태그: ${tags}`,
+    ].filter(Boolean).join(' · ')
     return <p className="text-sm text-gray-500">{label}에 대한 결과가 없습니다.</p>
   }
 
   return (
-    <div className="space-y-6">
-      {visitors.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">방문객 ({visitors.length})</h2>
-          <ul className="divide-y divide-gray-100">
-            {visitors.map((v) => (
-              <li key={v.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <Link href={`/visitors/${v.id}`} className="font-medium text-blue-600 hover:underline">
-                    {v.name}
-                  </Link>
-                  <p className="text-sm text-gray-500">
-                    {v.company ?? '—'}
-                    {v.scheduled_at ? ` · ${new Date(v.scheduled_at).toLocaleDateString('ko-KR')}` : ''}
-                    {v.tags?.length ? ` · ${v.tags.join(', ')}` : ''}
-                  </p>
-                </div>
-                <Badge variant="outline">{VISITOR_STATUSES[v.status]}</Badge>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {meetings.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">미팅 ({meetings.length})</h2>
-          <ul className="divide-y divide-gray-100">
-            {meetings.map((m) => (
-              <li key={m.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <Link href={`/meetings/${m.id}`} className="font-medium text-blue-600 hover:underline">
-                    {m.title}
-                  </Link>
-                  <p className="text-sm text-gray-500">
-                    {new Date(m.scheduled_at).toLocaleString('ko-KR')}
-                    {m.location ? ` · ${m.location}` : ''}
-                    {m.visitor ? ` · ${m.visitor.name}` : ''}
-                    {m.tags?.length ? ` · ${m.tags.join(', ')}` : ''}
-                  </p>
-                </div>
-                <Badge variant="outline">{MEETING_STATUSES[m.status]}</Badge>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <h2 className="font-semibold text-gray-900 mb-4">업무 스토리 ({items.length}건)</h2>
+      <ul className="divide-y divide-gray-100">
+        {items.map((item) => (
+          <li key={`${item.type}-${item.id}`} className="py-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline">{TIMELINE_TYPE_LABELS[item.type]}</Badge>
+                <span className="text-xs text-gray-500">
+                  {new Date(item.occurred_at).toLocaleString('ko-KR')}
+                </span>
+              </div>
+              <Link href={item.href} className="font-medium text-blue-600 hover:underline">
+                {item.title}
+              </Link>
+              <p className="text-sm text-gray-500 mt-0.5">{item.subtitle}</p>
+              {(item.company || item.project_name) && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {[item.company, item.project_name].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

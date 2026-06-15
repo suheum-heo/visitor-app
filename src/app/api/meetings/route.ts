@@ -67,7 +67,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, zoom_link } = body
+    const {
+      title, description, host_id, visitor_id, location, scheduled_at,
+      duration_minutes, notes, zoom_link, meeting_type, project_id,
+    } = body
     const tags = parseTags(body.tags)
 
     if (!title || !host_id || !scheduled_at) {
@@ -75,11 +78,15 @@ export async function POST(request: NextRequest) {
     }
 
     const [meeting] = await sql`
-      INSERT INTO meetings (title, description, host_id, visitor_id, location, scheduled_at, duration_minutes, notes, zoom_link, tags, created_by)
+      INSERT INTO meetings (
+        title, description, host_id, visitor_id, location, scheduled_at,
+        duration_minutes, notes, zoom_link, meeting_type, project_id, tags, created_by
+      )
       VALUES (
         ${title}, ${description ?? null}, ${host_id}, ${visitor_id ?? null},
         ${location ?? null}, ${scheduled_at}, ${duration_minutes ?? 60}, ${notes ?? null},
-        ${zoom_link ?? null}, ${tags}, ${session.user.id}
+        ${zoom_link ?? null}, ${meeting_type ?? 'internal'}, ${project_id ?? null},
+        ${tags}, ${session.user.id}
       )
       RETURNING *
     `

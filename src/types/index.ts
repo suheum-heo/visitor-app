@@ -4,6 +4,9 @@ export type VisitorPurpose = 'meeting' | 'delivery' | 'interview' | 'tour' | 'ot
 export type VisitorStatus = 'scheduled' | 'arrived' | 'departed' | 'cancelled'
 
 export type MeetingStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+export type MeetingType = 'internal' | 'external_inbound' | 'external_outbound' | 'virtual'
+export type TripStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+export type AccessRecordCategory = 'person' | 'vehicle' | 'delivery'
 
 export interface User {
   id: string
@@ -31,12 +34,14 @@ export interface Visitor {
   departed_at: string | null
   notes: string | null
   tags: string[]
+  project_id: string | null
   deleted_at: string | null
   created_by: string
   created_at: string
   updated_at: string
   host?: Pick<User, 'id' | 'name' | 'email' | 'department'>
   creator?: Pick<User, 'id' | 'name'>
+  project?: Pick<Project, 'id' | 'name' | 'company'>
 }
 
 export interface Meeting {
@@ -49,15 +54,65 @@ export interface Meeting {
   scheduled_at: string
   duration_minutes: number
   status: MeetingStatus
+  meeting_type: MeetingType
   notes: string | null
   zoom_link: string | null
   tags: string[]
+  project_id: string | null
   deleted_at: string | null
   created_by: string
   created_at: string
   updated_at: string
   host?: Pick<User, 'id' | 'name' | 'email' | 'department'>
   visitor?: Pick<Visitor, 'id' | 'name' | 'company'>
+  project?: Pick<Project, 'id' | 'name' | 'company'>
+}
+
+export interface Project {
+  id: string
+  name: string
+  company: string | null
+  description: string | null
+  tags: string[]
+  created_by: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface BusinessTrip {
+  id: string
+  title: string
+  employee_id: string
+  company: string | null
+  location: string | null
+  project_id: string | null
+  purpose: string | null
+  scheduled_at: string
+  end_at: string | null
+  status: TripStatus
+  notes: string | null
+  tags: string[]
+  deleted_at: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  employee?: Pick<User, 'id' | 'name' | 'email' | 'department'>
+  project?: Pick<Project, 'id' | 'name' | 'company'>
+}
+
+export interface TimelineItem {
+  id: string
+  type: 'visitor' | 'meeting' | 'trip' | 'access'
+  title: string
+  subtitle: string
+  occurred_at: string
+  company: string | null
+  project_name: string | null
+  status: string | null
+  meeting_type?: MeetingType
+  record_category?: AccessRecordCategory
+  href: string
 }
 
 export type TranscriptionStatus = 'pending' | 'processing' | 'done'
@@ -154,6 +209,9 @@ export interface AccessRecord {
   visitor_id: string | null
   name: string
   company: string | null
+  record_category: AccessRecordCategory
+  vehicle_number: string | null
+  project_id: string | null
   direction: AccessDirection
   access_point: string | null
   recorded_at: string
@@ -198,3 +256,11 @@ export type Permission =
   | 'access.create'
   | 'access.sync'
   | 'reports.read'
+  | 'trips.create'
+  | 'trips.read.all'
+  | 'trips.read.own'
+  | 'trips.update.all'
+  | 'trips.update.own'
+  | 'trips.delete'
+  | 'projects.create'
+  | 'projects.read'

@@ -81,10 +81,11 @@ export async function POST(request: NextRequest) {
     }
 
     const [visitor] = await sql`
-      INSERT INTO visitors (name, company, phone, email, purpose, host_id, scheduled_at, notes, tags, created_by)
+      INSERT INTO visitors (name, company, phone, email, purpose, host_id, scheduled_at, notes, tags, project_id, created_by)
       VALUES (
         ${name}, ${company ?? null}, ${phone ?? null}, ${email ?? null},
-        ${purpose}, ${host_id}, ${scheduled_at ?? null}, ${notes ?? null}, ${tags}, ${session.user.id}
+        ${purpose}, ${host_id}, ${scheduled_at ?? null}, ${notes ?? null}, ${tags},
+        ${body.project_id ?? null}, ${session.user.id}
       )
       RETURNING *
     `

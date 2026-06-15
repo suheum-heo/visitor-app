@@ -23,6 +23,17 @@ export function visitorSelectItems(
   return includeEmpty ? [{ value: '', label: '없음' }, ...items] : items
 }
 
+export function projectSelectItems(
+  projects: { id: string; name: string; company: string | null }[],
+  includeEmpty = true
+): SelectItemOption[] {
+  const items = projects.map((project) => ({
+    value: project.id,
+    label: project.company ? `${project.name} (${project.company})` : project.name,
+  }))
+  return includeEmpty ? [{ value: '', label: '없음' }, ...items] : items
+}
+
 export function labelFromItems(
   items: SelectItemOption[],
   value: string | null | undefined,

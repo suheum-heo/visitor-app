@@ -16,7 +16,9 @@ import {
 import { toast } from 'sonner'
 import TagInput from '@/components/ui/TagInput'
 import { userSelectItems, visitorSelectItems } from '@/lib/select-items'
-import type { Meeting, User, Visitor } from '@/types'
+import { MEETING_TYPES } from '@/constants'
+import ProjectSelect from '@/components/projects/ProjectSelect'
+import type { Meeting, User, Visitor, MeetingType } from '@/types'
 
 interface MeetingFormProps {
   meeting?: Meeting
@@ -32,11 +34,17 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
   const [loading, setLoading] = useState(false)
   const hostItems = userSelectItems(hosts)
   const visitorItems = visitorSelectItems(visitors)
+  const meetingTypeItems = Object.entries(MEETING_TYPES).map(([value, label]) => ({
+    value,
+    label,
+  }))
   const [form, setForm] = useState({
     title: meeting?.title ?? '',
     description: meeting?.description ?? '',
+    meeting_type: meeting?.meeting_type ?? 'internal' as MeetingType,
     host_id: meeting?.host_id ?? currentUserId,
     visitor_id: meeting?.visitor_id ?? '',
+    project_id: meeting?.project_id ?? '',
     location: meeting?.location ?? '',
     scheduled_at: meeting?.scheduled_at
       ? new Date(meeting.scheduled_at).toISOString().slice(0, 16)
@@ -73,6 +81,7 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
         body: JSON.stringify({
           ...form,
           visitor_id: form.visitor_id || null,
+          project_id: form.project_id || null,
           zoom_link: form.zoom_link.trim() || null,
           duration_minutes: parseInt(form.duration_minutes),
         }),
@@ -113,6 +122,30 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
           onChange={(e) => handleChange('description', e.target.value)}
           placeholder="미팅 목적과 안건을 간략히 입력하세요."
           rows={2}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>미팅 유형</Label>
+          <Select
+            value={form.meeting_type}
+            onValueChange={(v) => v && handleChange('meeting_type', v)}
+            items={meetingTypeItems}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {meetingTypeItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <ProjectSelect
+          value={form.project_id}
+          onChange={(id) => handleChange('project_id', id)}
         />
       </div>
 

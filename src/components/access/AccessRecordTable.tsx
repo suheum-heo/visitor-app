@@ -10,8 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ACCESS_DIRECTIONS, ACCESS_SOURCES } from '@/constants'
-import type { AccessRecord, AccessDirection, AccessSource } from '@/types'
+import { ACCESS_DIRECTIONS, ACCESS_RECORD_CATEGORIES } from '@/constants'
+import type { AccessRecord, AccessDirection, AccessRecordCategory } from '@/types'
 
 interface AccessRecordTableProps {
   refreshKey?: number
@@ -49,11 +49,12 @@ export default function AccessRecordTable({ refreshKey }: AccessRecordTableProps
       <TableHeader>
         <TableRow>
           <TableHead>시간</TableHead>
+          <TableHead>유형</TableHead>
           <TableHead>이름</TableHead>
+          <TableHead>차량번호</TableHead>
           <TableHead>회사</TableHead>
           <TableHead>방향</TableHead>
           <TableHead>출입구</TableHead>
-          <TableHead>출처</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -62,7 +63,13 @@ export default function AccessRecordTable({ refreshKey }: AccessRecordTableProps
             <TableCell className="whitespace-nowrap">
               {new Date(r.recorded_at).toLocaleString('ko-KR')}
             </TableCell>
+            <TableCell>
+              <Badge variant="outline">
+                {ACCESS_RECORD_CATEGORIES[r.record_category as AccessRecordCategory]}
+              </Badge>
+            </TableCell>
             <TableCell className="font-medium">{r.name}</TableCell>
+            <TableCell>{r.vehicle_number ?? '—'}</TableCell>
             <TableCell>{r.company ?? '—'}</TableCell>
             <TableCell>
               <Badge variant={r.direction === 'in' ? 'default' : 'secondary'}>
@@ -70,9 +77,6 @@ export default function AccessRecordTable({ refreshKey }: AccessRecordTableProps
               </Badge>
             </TableCell>
             <TableCell>{r.access_point ?? '—'}</TableCell>
-            <TableCell className="text-gray-500">
-              {ACCESS_SOURCES[r.source as AccessSource]}
-            </TableCell>
           </TableRow>
         ))}
       </TableBody>

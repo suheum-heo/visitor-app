@@ -13,13 +13,20 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import ProjectSelect from '@/components/projects/ProjectSelect'
 import { visitorSelectItems } from '@/lib/select-items'
-import type { Visitor } from '@/types'
+import { ACCESS_RECORD_CATEGORIES } from '@/constants'
+import type { AccessRecordCategory, Visitor } from '@/types'
 
 const DIRECTION_ITEMS = [
   { value: 'in', label: '입장' },
   { value: 'out', label: '퇴장' },
 ] as const
+
+const CATEGORY_ITEMS = Object.entries(ACCESS_RECORD_CATEGORIES).map(([value, label]) => ({
+  value,
+  label,
+}))
 
 interface AccessRecordFormProps {
   visitors: Pick<Visitor, 'id' | 'name' | 'company'>[]
@@ -30,14 +37,19 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
   const [loading, setLoading] = useState(false)
   const visitorItems = visitorSelectItems(visitors)
   const [form, setForm] = useState({
+    record_category: 'person' as AccessRecordCategory,
     name: '',
     company: '',
+    vehicle_number: '',
     direction: 'in',
     access_point: '',
     recorded_at: new Date().toISOString().slice(0, 16),
     visitor_id: '',
+    project_id: '',
     notes: '',
   })
+
+  const isVehicle = form.record_category === 'vehicle' || form.record_category === 'delivery'
 
   function handleVisitorSelect(visitorId: string | null) {
     if (!visitorId) {
@@ -55,8 +67,9 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) {
-      toast.error('이름은 필수입니다.')
+    const resolvedName = form.name.trim() || form.vehicle_number.trim()
+    if (!resolvedName) {
+      toast.error(isVehicle ? '차량번호 또는 이름을 입력하세요.' : '이름은 필수입니다.')
       return
     }
 
@@ -67,7 +80,10 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          name: form.name.trim() || form.vehicle_number.trim(),
           visitor_id: form.visitor_id || null,
+          project_id: form.project_id || null,
+          vehicle_number: form.vehicle_number.trim() || null,
         }),
       })
 
@@ -79,12 +95,15 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
 
       toast.success('출입 기록이 등록되었습니다.')
       setForm({
+        record_category: 'person',
         name: '',
         company: '',
+        vehicle_number: '',
         direction: 'in',
         access_point: '',
         recorded_at: new Date().toISOString().slice(0, 16),
         visitor_id: '',
+        project_id: '',
         notes: '',
       })
       onCreated?.()
@@ -96,34 +115,65 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label>방문객 연결 (선택)</Label>
+        <Label>출입 유형 *</Label>
         <Select
-          value={form.visitor_id}
-          onValueChange={handleVisitorSelect}
-          items={visitorItems}
+          value={form.record_category}
+          onValueChange={(v) => v && setForm((p) => ({ ...p, record_category: v as AccessRecordCategory }))}
+          items={CATEGORY_ITEMS}
         >
           <SelectTrigger>
-            <SelectValue placeholder="없음" />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">없음</SelectItem>
-            {visitors.map((v) => (
-              <SelectItem key={v.id} value={v.id}>
-                {v.name}{v.company ? ` (${v.company})` : ''}
-              </SelectItem>
+            {CATEGORY_ITEMS.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {form.record_category === 'person' && (
         <div className="space-y-2">
-          <Label htmlFor="ar-name">이름 *</Label>
+          <Label>방문객 연결 (선택)</Label>
+          <Select
+            value={form.visitor_id}
+            onValueChange={handleVisitorSelect}
+            items={visitorItems}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="없음" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">없음</SelectItem>
+              {visitors.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.name}{v.company ? ` (${v.company})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        {isVehicle && (
+          <div className="space-y-2">
+            <Label htmlFor="ar-vehicle">차량번호 *</Label>
+            <Input
+              id="ar-vehicle"
+              value={form.vehicle_number}
+              onChange={(e) => setForm((p) => ({ ...p, vehicle_number: e.target.value }))}
+              placeholder="12가1234"
+            />
+          </div>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="ar-name">{isVehicle ? '운전자/담당자' : '이름 *'}</Label>
           <Input
             id="ar-name"
             value={form.name}
             onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            required
+            required={!isVehicle}
           />
         </div>
         <div className="space-y-2">
@@ -135,6 +185,11 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
           />
         </div>
       </div>
+
+      <ProjectSelect
+        value={form.project_id}
+        onChange={(id) => setForm((p) => ({ ...p, project_id: id }))}
+      />
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
