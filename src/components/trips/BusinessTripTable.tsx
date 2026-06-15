@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TRIP_STATUSES } from '@/constants'
+import { formatDateTimeKorean } from '@/lib/datetime-local'
 import type { BusinessTrip, TripStatus, User } from '@/types'
 
 interface BusinessTripTableProps {
@@ -44,7 +45,7 @@ export default function BusinessTripTable({ trips }: BusinessTripTableProps) {
             <TableCell>{trip.employee?.name ?? '—'}</TableCell>
             <TableCell>{trip.company ?? trip.location ?? '—'}</TableCell>
             <TableCell className="whitespace-nowrap">
-              {new Date(trip.scheduled_at).toLocaleString('ko-KR')}
+              {formatDateTimeKorean(trip.scheduled_at)}
             </TableCell>
             <TableCell>
               <Badge variant="outline">{TRIP_STATUSES[trip.status as TripStatus]}</Badge>

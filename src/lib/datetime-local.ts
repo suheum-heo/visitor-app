@@ -6,6 +6,9 @@
 const DATETIME_LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
 const DATE_LOCAL_RE = /^\d{4}-\d{2}-\d{2}$/
 const PARTIAL_TIME_RE = /^(\d{0,4}|\d{0,2}(:\d{0,2})?)$/
+const KOREA_TIME_ZONE = 'Asia/Seoul'
+const KOREA_TIME_OFFSET = '+09:00'
+const OFFSET_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/i
 
 /** 입력 중 허용되는 날짜 문자열 (정규화 없음) */
 export function formatDateInput(raw: string): string {
@@ -186,8 +189,21 @@ export function toDateTimeLocalValue(value: Date | string | null | undefined): s
   if (!value) return ''
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KOREA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d)
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
 }
 
 function parseLocalDateTime(normalized: string): Date {
@@ -203,13 +219,34 @@ export function fromDateTimeLocalToISO(value: string | null | undefined): string
   if (!normalized) return null
   const local = parseLocalDateTime(normalized)
   if (Number.isNaN(local.getTime())) return null
-  return local.toISOString()
+  return `${normalized}:00${KOREA_TIME_OFFSET}`
+}
+
+export function formatDateTimeKorean(value: Date | string | null | undefined): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '—'
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: KOREA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(d)
 }
 
 /** API input: datetime-local or ISO string → ISO timestamp. */
 export function parseTimestampInput(value: unknown): string | null {
   if (value == null || value === '') return null
   if (typeof value !== 'string') return null
+
+  const trimmed = value.trim()
+  if (OFFSET_TIMESTAMP_RE.test(trimmed) && !Number.isNaN(new Date(trimmed).getTime())) {
+    return trimmed
+  }
 
   const fromLocal = fromDateTimeLocalToISO(value)
   if (fromLocal) return fromLocal

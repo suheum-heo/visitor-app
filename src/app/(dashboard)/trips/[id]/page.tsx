@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import BusinessTripForm from '@/components/trips/BusinessTripForm'
 import { TRIP_STATUSES } from '@/constants'
+import { formatDateTimeKorean } from '@/lib/datetime-local'
 import type { BusinessTrip, TripStatus, User, UserRole } from '@/types'
 
 interface PageProps {
@@ -65,9 +66,9 @@ export default async function TripDetailPage({ params }: PageProps) {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-3 text-sm">
-        <p><span className="text-gray-500">출발:</span> {new Date(t.scheduled_at).toLocaleString('ko-KR')}</p>
+        <p><span className="text-gray-500">출발:</span> {formatDateTimeKorean(t.scheduled_at)}</p>
         {t.end_at && (
-          <p><span className="text-gray-500">복귀:</span> {new Date(t.end_at).toLocaleString('ko-KR')}</p>
+          <p><span className="text-gray-500">복귀:</span> {formatDateTimeKorean(t.end_at)}</p>
         )}
         {t.purpose && <p><span className="text-gray-500">목적:</span> {t.purpose}</p>}
         {t.project && (
