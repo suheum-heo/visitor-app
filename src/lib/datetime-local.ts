@@ -4,7 +4,7 @@
  */
 
 const DATETIME_LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
-const PARTIAL_TIME_RE = /^\d{0,2}(:\d{0,2})?$/
+const PARTIAL_TIME_RE = /^(\d{0,4}|\d{0,2}(:\d{0,2})?)$/
 
 /** 입력 중 허용되는 부분 시간 문자열 (정규화 없음) */
 export function formatTimeInput(raw: string): string {
@@ -12,9 +12,7 @@ export function formatTimeInput(raw: string): string {
   const colonIndex = cleaned.indexOf(':')
 
   if (colonIndex < 0) {
-    const digits = cleaned.slice(0, 4)
-    if (digits.length <= 2) return digits
-    return `${digits.slice(0, 2)}:${digits.slice(2)}`
+    return cleaned.slice(0, 4)
   }
 
   const hour = cleaned.slice(0, colonIndex).slice(0, 2)
@@ -22,8 +20,7 @@ export function formatTimeInput(raw: string): string {
 
   if (afterColon.length === 0 && cleaned.endsWith(':')) return `${hour}:`
 
-  const minute =
-    afterColon.length > 2 ? afterColon.slice(-2) : afterColon
+  const minute = afterColon.slice(0, 2)
   return `${hour}:${minute}`
 }
 
@@ -39,9 +36,11 @@ export function normalizeTimeInput(time: string): string {
   }
 
   const digits = trimmed.replace(/\D/g, '')
-  if (digits.length >= 3) {
-    const hour = Math.min(23, Math.max(0, parseInt(digits.slice(0, 2), 10)))
-    const minute = Math.min(59, Math.max(0, parseInt(digits.slice(2, 4).padEnd(2, '0'), 10)))
+  if (digits.length === 3 || digits.length === 4) {
+    const hourDigits = digits.length === 3 ? digits.slice(0, 1) : digits.slice(0, 2)
+    const minuteDigits = digits.slice(-2)
+    const hour = Math.min(23, Math.max(0, parseInt(hourDigits, 10)))
+    const minute = Math.min(59, Math.max(0, parseInt(minuteDigits, 10)))
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
   }
 
@@ -52,7 +51,15 @@ export function normalizeDateTimeLocalInput(value: string): string {
   if (!value) return ''
   const trimmed = value.trim()
   const match = trimmed.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/)
-  return match ? match[1] : ''
+  if (match) return match[1]
+
+  const localMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})T(.+)$/)
+  if (!localMatch) return ''
+
+  const normalizedTime = normalizeTimeInput(localMatch[2])
+  return /^\d{2}:\d{2}$/.test(normalizedTime)
+    ? `${localMatch[1]}T${normalizedTime}`
+    : ''
 }
 
 export function splitDateTimeLocal(value: string): { date: string; time: string } {
