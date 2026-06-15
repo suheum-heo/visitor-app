@@ -4,7 +4,66 @@
  */
 
 const DATETIME_LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
+const DATE_LOCAL_RE = /^\d{4}-\d{2}-\d{2}$/
 const PARTIAL_TIME_RE = /^(\d{0,4}|\d{0,2}(:\d{0,2})?)$/
+
+/** 입력 중 허용되는 날짜 문자열 (정규화 없음) */
+export function formatDateInput(raw: string): string {
+  return raw.replace(/[^\d.\-/\s년월일]/g, '').slice(0, 16)
+}
+
+export function normalizeDateInput(date: string): string {
+  const trimmed = date.trim()
+  if (!trimmed) return ''
+
+  const digits = trimmed.replace(/\D/g, '')
+  if (digits.length === 8) {
+    return normalizeDateParts(digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)) || trimmed
+  }
+
+  const separated = trimmed
+    .replace(/[년월]/g, '-')
+    .replace(/일/g, '')
+    .replace(/[./]/g, '-')
+    .replace(/\s+/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  const parts = separated.split('-')
+  if (parts.length === 3) {
+    return normalizeDateParts(parts[0], parts[1], parts[2]) || trimmed
+  }
+
+  return trimmed
+}
+
+export function formatKoreanDateInput(date: string): string {
+  const normalized = normalizeDateInput(date)
+  if (!DATE_LOCAL_RE.test(normalized)) return date.trim()
+
+  const [year, month, day] = normalized.split('-')
+  return `${year}. ${month}. ${day}.`
+}
+
+function normalizeDateParts(yearText: string, monthText: string, dayText: string): string {
+  if (!/^\d{4}$/.test(yearText) || !/^\d{1,2}$/.test(monthText) || !/^\d{1,2}$/.test(dayText)) {
+    return ''
+  }
+
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  if (!isValidLocalDate(year, month, day)) return ''
+
+  return `${yearText}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function isValidLocalDate(year: number, month: number, day: number): boolean {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false
+
+  const d = new Date(year, month - 1, day)
+  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day
+}
 
 /** 입력 중 허용되는 부분 시간 문자열 (정규화 없음) */
 export function formatTimeInput(raw: string): string {
@@ -53,12 +112,13 @@ export function normalizeDateTimeLocalInput(value: string): string {
   const match = trimmed.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/)
   if (match) return match[1]
 
-  const localMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})T(.+)$/)
+  const localMatch = trimmed.match(/^(.+)T(.+)$/)
   if (!localMatch) return ''
 
+  const normalizedDate = normalizeDateInput(localMatch[1])
   const normalizedTime = normalizeTimeInput(localMatch[2])
-  return /^\d{2}:\d{2}$/.test(normalizedTime)
-    ? `${localMatch[1]}T${normalizedTime}`
+  return DATE_LOCAL_RE.test(normalizedDate) && /^\d{2}:\d{2}$/.test(normalizedTime)
+    ? `${normalizedDate}T${normalizedTime}`
     : ''
 }
 
@@ -76,9 +136,10 @@ export function splitDateTimeLocal(value: string): { date: string; time: string 
 
   const datePart = value.slice(0, tIndex)
   const timePart = value.slice(tIndex + 1)
+  const normalizedDate = normalizeDateInput(datePart)
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart) && PARTIAL_TIME_RE.test(timePart)) {
-    return { date: datePart, time: timePart }
+  if (DATE_LOCAL_RE.test(normalizedDate) && PARTIAL_TIME_RE.test(timePart)) {
+    return { date: normalizedDate, time: timePart }
   }
 
   const normalized = normalizeDateTimeLocalInput(value)
@@ -89,7 +150,7 @@ export function splitDateTimeLocal(value: string): { date: string; time: string 
 }
 
 export function combineDateTimeLocalRaw(date: string, time: string): string {
-  const d = date.trim()
+  const d = normalizeDateInput(date)
   const t = time.trim()
   if (!d && !t) return ''
   if (!d) return `T${t}`

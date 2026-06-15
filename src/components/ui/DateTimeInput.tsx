@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label'
 import {
   combineDateTimeLocal,
   combineDateTimeLocalRaw,
+  formatDateInput,
+  formatKoreanDateInput,
   formatTimeInput,
   splitDateTimeLocal,
 } from '@/lib/datetime-local'
@@ -28,14 +30,16 @@ export default function DateTimeInput({
   error,
 }: DateTimeInputProps) {
   const parsed = splitDateTimeLocal(value)
-  const [date, setDate] = useState(parsed.date)
+  const [date, setDate] = useState(formatKoreanDateInput(parsed.date))
   const [time, setTime] = useState(parsed.time)
+  const dateFocusedRef = useRef(false)
   const timeFocusedRef = useRef(false)
 
   useEffect(() => {
+    if (dateFocusedRef.current) return
     if (timeFocusedRef.current) return
     const next = splitDateTimeLocal(value)
-    setDate(next.date)
+    setDate(formatKoreanDateInput(next.date))
     setTime(next.time)
   }, [value])
 
@@ -47,7 +51,16 @@ export default function DateTimeInput({
     timeFocusedRef.current = false
     const normalized = combineDateTimeLocal(date, time)
     const next = splitDateTimeLocal(normalized)
-    setDate(next.date)
+    setDate(formatKoreanDateInput(next.date))
+    setTime(next.time)
+    onChange(normalized)
+  }
+
+  function handleDateBlur() {
+    dateFocusedRef.current = false
+    const normalized = combineDateTimeLocal(date, time)
+    const next = splitDateTimeLocal(normalized)
+    setDate(formatKoreanDateInput(next.date))
     setTime(next.time)
     onChange(normalized)
   }
@@ -61,13 +74,21 @@ export default function DateTimeInput({
       <div className="grid grid-cols-2 gap-2">
         <Input
           id={`${id}-date`}
-          type="date"
+          type="text"
+          inputMode="numeric"
           value={date}
+          placeholder="2026. 06. 15."
+          onFocus={() => {
+            dateFocusedRef.current = true
+          }}
           onChange={(e) => {
-            const nextDate = e.target.value
+            const nextDate = formatDateInput(e.target.value)
             setDate(nextDate)
             emitRaw(nextDate, time)
           }}
+          onBlur={handleDateBlur}
+          className="font-mono tabular-nums"
+          aria-label="날짜 (한국식, YYYY. MM. DD.)"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : `${id}-hint`}
         />
@@ -93,7 +114,7 @@ export default function DateTimeInput({
         />
       </div>
       <p id={`${id}-hint`} className="text-xs text-gray-500">
-        시간은 24시간 형식으로 입력 (예: 14:30, 오후 2시 30분)
+        날짜는 한국식, 시간은 24시간 형식으로 입력 (예: 2026. 06. 15. 14:30)
       </p>
       {error && (
         <p id={`${id}-error`} className="text-xs text-destructive" role="alert">
