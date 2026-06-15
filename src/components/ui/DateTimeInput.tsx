@@ -40,6 +40,12 @@ export default function DateTimeInput({
     onChange(combineDateTimeLocal(datePart, timePart))
   }
 
+  function handleTimeBlur() {
+    const normalized = normalizeTimeInput(time)
+    setTime(normalized)
+    emit(date, normalized)
+  }
+
   return (
     <div className="space-y-2">
       <Label>
@@ -61,20 +67,24 @@ export default function DateTimeInput({
         />
         <Input
           id={`${id}-time`}
-          type="time"
-          step={60}
+          type="text"
+          inputMode="numeric"
           value={time}
+          placeholder="14:30"
           onChange={(e) => {
-            const nextTime = normalizeTimeInput(e.target.value)
-            setTime(nextTime)
-            emit(date, nextTime)
+            const raw = e.target.value.replace(/[^\d:]/g, '').slice(0, 5)
+            setTime(raw)
+            emit(date, raw)
           }}
+          onBlur={handleTimeBlur}
+          className="font-mono tabular-nums"
+          aria-label="시간 (24시간, HH:MM)"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : `${id}-hint`}
         />
       </div>
       <p id={`${id}-hint`} className="text-xs text-gray-500">
-        시간은 24시간 형식입니다 (예: 14:30)
+        시간은 24시간 형식으로 입력 (예: 14:30, 오후 2시 30분)
       </p>
       {error && (
         <p id={`${id}-error`} className="text-xs text-destructive" role="alert">

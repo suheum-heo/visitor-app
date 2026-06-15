@@ -6,11 +6,24 @@
 const DATETIME_LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
 
 export function normalizeTimeInput(time: string): string {
-  const match = time.trim().match(/^(\d{1,2}):(\d{2})/)
-  if (!match) return time.trim()
-  const hour = Math.min(23, Math.max(0, parseInt(match[1], 10)))
-  const minute = Math.min(59, Math.max(0, parseInt(match[2], 10)))
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  const trimmed = time.trim()
+  if (!trimmed) return ''
+
+  const colonMatch = trimmed.match(/^(\d{1,2}):(\d{1,2})$/)
+  if (colonMatch) {
+    const hour = Math.min(23, Math.max(0, parseInt(colonMatch[1], 10)))
+    const minute = Math.min(59, Math.max(0, parseInt(colonMatch[2], 10)))
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  }
+
+  const digits = trimmed.replace(/\D/g, '')
+  if (digits.length >= 3) {
+    const hour = Math.min(23, Math.max(0, parseInt(digits.slice(0, 2), 10)))
+    const minute = Math.min(59, Math.max(0, parseInt(digits.slice(2, 4).padEnd(2, '0'), 10)))
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  }
+
+  return trimmed
 }
 
 export function normalizeDateTimeLocalInput(value: string): string {
