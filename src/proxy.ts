@@ -22,6 +22,7 @@ export const proxy = auth((req) => {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // _next 정적 자산(CSS/JS)은 proxy 인증 검사 제외
+    '/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?)$).*)',
   ],
 }

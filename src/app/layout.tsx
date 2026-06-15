@@ -9,14 +9,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className="h-full antialiased">
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
-        />
-      </head>
-      <body className="min-h-full font-sans">
+    <html lang="ko" className="h-full">
+      <body className="min-h-full font-sans antialiased bg-background text-foreground">
         {children}
         <Toaster richColors position="top-right" />
       </body>
