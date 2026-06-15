@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   combineDateTimeLocal,
-  normalizeTimeInput,
+  combineDateTimeLocalRaw,
+  formatTimeInput,
   splitDateTimeLocal,
 } from '@/lib/datetime-local'
 
@@ -29,21 +30,26 @@ export default function DateTimeInput({
   const parsed = splitDateTimeLocal(value)
   const [date, setDate] = useState(parsed.date)
   const [time, setTime] = useState(parsed.time)
+  const timeFocusedRef = useRef(false)
 
   useEffect(() => {
+    if (timeFocusedRef.current) return
     const next = splitDateTimeLocal(value)
     setDate(next.date)
     setTime(next.time)
   }, [value])
 
-  function emit(datePart: string, timePart: string) {
-    onChange(combineDateTimeLocal(datePart, timePart))
+  function emitRaw(datePart: string, timePart: string) {
+    onChange(combineDateTimeLocalRaw(datePart, timePart))
   }
 
   function handleTimeBlur() {
-    const normalized = normalizeTimeInput(time)
-    setTime(normalized)
-    emit(date, normalized)
+    timeFocusedRef.current = false
+    const normalized = combineDateTimeLocal(date, time)
+    const next = splitDateTimeLocal(normalized)
+    setDate(next.date)
+    setTime(next.time)
+    onChange(normalized)
   }
 
   return (
@@ -60,7 +66,7 @@ export default function DateTimeInput({
           onChange={(e) => {
             const nextDate = e.target.value
             setDate(nextDate)
-            emit(nextDate, time)
+            emitRaw(nextDate, time)
           }}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : `${id}-hint`}
@@ -71,10 +77,13 @@ export default function DateTimeInput({
           inputMode="numeric"
           value={time}
           placeholder="14:30"
+          onFocus={() => {
+            timeFocusedRef.current = true
+          }}
           onChange={(e) => {
-            const raw = e.target.value.replace(/[^\d:]/g, '').slice(0, 5)
-            setTime(raw)
-            emit(date, raw)
+            const formatted = formatTimeInput(e.target.value)
+            setTime(formatted)
+            emitRaw(date, formatted)
           }}
           onBlur={handleTimeBlur}
           className="font-mono tabular-nums"

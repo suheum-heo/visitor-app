@@ -4,6 +4,28 @@
  */
 
 const DATETIME_LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
+const PARTIAL_TIME_RE = /^\d{0,2}(:\d{0,2})?$/
+
+/** 입력 중 허용되는 부분 시간 문자열 (정규화 없음) */
+export function formatTimeInput(raw: string): string {
+  const cleaned = raw.replace(/[^\d:]/g, '')
+  const colonIndex = cleaned.indexOf(':')
+
+  if (colonIndex < 0) {
+    const digits = cleaned.slice(0, 4)
+    if (digits.length <= 2) return digits
+    return `${digits.slice(0, 2)}:${digits.slice(2)}`
+  }
+
+  const hour = cleaned.slice(0, colonIndex).slice(0, 2)
+  const afterColon = cleaned.slice(colonIndex + 1).replace(/:/g, '')
+
+  if (afterColon.length === 0 && cleaned.endsWith(':')) return `${hour}:`
+
+  const minute =
+    afterColon.length > 2 ? afterColon.slice(-2) : afterColon
+  return `${hour}:${minute}`
+}
 
 export function normalizeTimeInput(time: string): string {
   const trimmed = time.trim()
@@ -36,25 +58,42 @@ export function normalizeDateTimeLocalInput(value: string): string {
 export function splitDateTimeLocal(value: string): { date: string; time: string } {
   if (!value) return { date: '', time: '' }
   if (value.startsWith('T')) {
-    return { date: '', time: normalizeTimeInput(value.slice(1)) }
+    return { date: '', time: value.slice(1) }
   }
-  const normalized = normalizeDateTimeLocalInput(value)
-  if (!normalized) {
-    const [dateOnly] = value.split('T')
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) return { date: dateOnly, time: '' }
+
+  const tIndex = value.indexOf('T')
+  if (tIndex === -1) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return { date: value, time: '' }
     return { date: '', time: '' }
   }
+
+  const datePart = value.slice(0, tIndex)
+  const timePart = value.slice(tIndex + 1)
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart) && PARTIAL_TIME_RE.test(timePart)) {
+    return { date: datePart, time: timePart }
+  }
+
+  const normalized = normalizeDateTimeLocalInput(value)
+  if (!normalized) return { date: datePart, time: timePart }
+
   const [date, time] = normalized.split('T')
   return { date, time }
+}
+
+export function combineDateTimeLocalRaw(date: string, time: string): string {
+  const d = date.trim()
+  const t = time.trim()
+  if (!d && !t) return ''
+  if (!d) return `T${t}`
+  if (!t) return `${d}T`
+  return `${d}T${t}`
 }
 
 export function combineDateTimeLocal(date: string, time: string): string {
   const d = date.trim()
   const t = normalizeTimeInput(time)
-  if (!d && !t) return ''
-  if (!d) return `T${t}`
-  if (!t) return `${d}T`
-  return `${d}T${t}`
+  return combineDateTimeLocalRaw(d, t)
 }
 
 export function isValidDateTimeLocalInput(value: string): boolean {
