@@ -3,6 +3,7 @@ import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import { logAudit } from '@/lib/audit'
 import { parseTags } from '@/lib/tags'
+import { parseTimestampInput } from '@/lib/datetime-local'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 
@@ -87,6 +88,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 })
     }
 
+    const scheduledAtIso = parseTimestampInput(scheduled_at)
+    if (!scheduledAtIso) {
+      return NextResponse.json({ error: '출발 일시 형식이 올바르지 않습니다.' }, { status: 400 })
+    }
+
+    const endAtIso = parseTimestampInput(end_at)
+
     const [trip] = await sql`
       INSERT INTO business_trips (
         title, employee_id, company, location, project_id,
@@ -94,8 +102,8 @@ export async function POST(request: NextRequest) {
       )
       VALUES (
         ${title}, ${employee_id}, ${company ?? null}, ${location ?? null},
-        ${project_id ?? null}, ${purpose ?? null}, ${scheduled_at},
-        ${end_at ?? null}, ${notes ?? null}, ${tags}, ${session.user.id}
+        ${project_id ?? null}, ${purpose ?? null}, ${scheduledAtIso},
+        ${endAtIso}, ${notes ?? null}, ${tags}, ${session.user.id}
       )
       RETURNING *
     `

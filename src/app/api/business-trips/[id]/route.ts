@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { hasPermission } from '@/lib/auth/rbac'
 import { logAudit } from '@/lib/audit'
+import { parseTimestampInput } from '@/lib/datetime-local'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { UserRole } from '@/types'
 
@@ -77,6 +78,16 @@ export async function PATCH(
     }
     if ('project_id' in updates && updates.project_id === '') {
       updates.project_id = null
+    }
+    if ('scheduled_at' in updates) {
+      const parsed = parseTimestampInput(updates.scheduled_at)
+      if (!parsed) {
+        return NextResponse.json({ error: '출발 일시 형식이 올바르지 않습니다.' }, { status: 400 })
+      }
+      updates.scheduled_at = parsed
+    }
+    if ('end_at' in updates) {
+      updates.end_at = parseTimestampInput(updates.end_at)
     }
 
     const [trip] = await sql`

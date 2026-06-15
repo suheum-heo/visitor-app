@@ -27,6 +27,10 @@ import { toast } from 'sonner'
 import TagInput from '@/components/ui/TagInput'
 import ProjectSelect from '@/components/projects/ProjectSelect'
 import { userSelectItems } from '@/lib/select-items'
+import {
+  normalizeDateTimeLocalInput,
+  toDateTimeLocalValue,
+} from '@/lib/datetime-local'
 import type { Visitor, User, VisitorPurpose } from '@/types'
 
 interface DuplicateMatch {
@@ -79,9 +83,7 @@ export default function VisitorForm({
     email: visitor?.email ?? '',
     purpose: visitor?.purpose ?? 'meeting' as VisitorPurpose,
     host_id: visitor?.host_id ?? currentUserId,
-    scheduled_at: visitor?.scheduled_at
-      ? new Date(visitor.scheduled_at).toISOString().slice(0, 16)
-      : '',
+    scheduled_at: toDateTimeLocalValue(visitor?.scheduled_at),
     notes: visitor?.notes ?? '',
     tags: visitor?.tags ?? [] as string[],
     project_id: visitor?.project_id ?? '',
@@ -169,7 +171,7 @@ export default function VisitorForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 max-w-lg">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="name">이름 *</Label>
@@ -264,8 +266,9 @@ export default function VisitorForm({
         <Input
           id="scheduled_at"
           type="datetime-local"
+          step={60}
           value={form.scheduled_at}
-          onChange={(e) => handleChange('scheduled_at', e.target.value)}
+          onChange={(e) => handleChange('scheduled_at', normalizeDateTimeLocalInput(e.target.value))}
         />
       </div>
 

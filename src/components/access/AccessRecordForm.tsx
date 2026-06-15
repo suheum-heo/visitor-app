@@ -15,6 +15,10 @@ import {
 import { toast } from 'sonner'
 import ProjectSelect from '@/components/projects/ProjectSelect'
 import { visitorSelectItems } from '@/lib/select-items'
+import {
+  normalizeDateTimeLocalInput,
+  nowDateTimeLocalValue,
+} from '@/lib/datetime-local'
 import { ACCESS_RECORD_CATEGORIES } from '@/constants'
 import type { AccessRecordCategory, Visitor } from '@/types'
 
@@ -43,7 +47,7 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
     vehicle_number: '',
     direction: 'in',
     access_point: '',
-    recorded_at: new Date().toISOString().slice(0, 16),
+    recorded_at: nowDateTimeLocalValue(),
     visitor_id: '',
     project_id: '',
     notes: '',
@@ -101,7 +105,7 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
         vehicle_number: '',
         direction: 'in',
         access_point: '',
-        recorded_at: new Date().toISOString().slice(0, 16),
+        recorded_at: nowDateTimeLocalValue(),
         visitor_id: '',
         project_id: '',
         notes: '',
@@ -113,7 +117,7 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <div className="space-y-2">
         <Label>출입 유형 *</Label>
         <Select
@@ -213,8 +217,9 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
           <Input
             id="ar-time"
             type="datetime-local"
+            step={60}
             value={form.recorded_at}
-            onChange={(e) => setForm((p) => ({ ...p, recorded_at: e.target.value }))}
+            onChange={(e) => setForm((p) => ({ ...p, recorded_at: normalizeDateTimeLocalInput(e.target.value) }))}
           />
         </div>
       </div>

@@ -18,6 +18,7 @@ import TagInput from '@/components/ui/TagInput'
 import { userSelectItems, visitorSelectItems } from '@/lib/select-items'
 import { MEETING_TYPES } from '@/constants'
 import ProjectSelect from '@/components/projects/ProjectSelect'
+import { normalizeDateTimeLocalInput, toDateTimeLocalValue } from '@/lib/datetime-local'
 import type { Meeting, User, Visitor, MeetingType } from '@/types'
 
 interface MeetingFormProps {
@@ -46,9 +47,7 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
     visitor_id: meeting?.visitor_id ?? '',
     project_id: meeting?.project_id ?? '',
     location: meeting?.location ?? '',
-    scheduled_at: meeting?.scheduled_at
-      ? new Date(meeting.scheduled_at).toISOString().slice(0, 16)
-      : '',
+    scheduled_at: toDateTimeLocalValue(meeting?.scheduled_at),
     duration_minutes: String(meeting?.duration_minutes ?? '60'),
     notes: meeting?.notes ?? '',
     zoom_link: meeting?.zoom_link ?? '',
@@ -102,7 +101,7 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 max-w-lg">
       <div className="space-y-2">
         <Label htmlFor="title">미팅 제목 *</Label>
         <Input
@@ -197,8 +196,9 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
           <Input
             id="scheduled_at"
             type="datetime-local"
+            step={60}
             value={form.scheduled_at}
-            onChange={(e) => handleChange('scheduled_at', e.target.value)}
+            onChange={(e) => handleChange('scheduled_at', normalizeDateTimeLocalInput(e.target.value))}
             required
           />
         </div>

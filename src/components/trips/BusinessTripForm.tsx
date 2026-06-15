@@ -17,6 +17,12 @@ import { toast } from 'sonner'
 import TagInput from '@/components/ui/TagInput'
 import ProjectSelect from '@/components/projects/ProjectSelect'
 import { userSelectItems } from '@/lib/select-items'
+import {
+  fromDateTimeLocalToISO,
+  isValidDateTimeLocalInput,
+  normalizeDateTimeLocalInput,
+  toDateTimeLocalValue,
+} from '@/lib/datetime-local'
 import type { BusinessTrip, User } from '@/types'
 
 interface BusinessTripFormProps {
@@ -38,10 +44,8 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
     location: trip?.location ?? '',
     project_id: trip?.project_id ?? '',
     purpose: trip?.purpose ?? '',
-    scheduled_at: trip?.scheduled_at
-      ? new Date(trip.scheduled_at).toISOString().slice(0, 16)
-      : '',
-    end_at: trip?.end_at ? new Date(trip.end_at).toISOString().slice(0, 16) : '',
+    scheduled_at: toDateTimeLocalValue(trip?.scheduled_at),
+    end_at: toDateTimeLocalValue(trip?.end_at),
     notes: trip?.notes ?? '',
     tags: trip?.tags ?? [] as string[],
   })
@@ -50,10 +54,42 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
     setForm((prev) => ({ ...prev, [field]: value ?? '' }))
   }
 
+  function handleDateTimeChange(field: 'scheduled_at' | 'end_at', raw: string) {
+    setForm((prev) => ({ ...prev, [field]: normalizeDateTimeLocalInput(raw) }))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim() || !form.scheduled_at) {
-      toast.error('제목과 출발 일시는 필수입니다.')
+    if (!form.title.trim()) {
+      toast.error('제목을 입력해주세요.')
+      return
+    }
+
+    if (!form.scheduled_at || !isValidDateTimeLocalInput(form.scheduled_at)) {
+      toast.error('출발 일시를 올바르게 입력해주세요.')
+      return
+    }
+
+    if (form.end_at && !isValidDateTimeLocalInput(form.end_at)) {
+      toast.error('복귀 일시를 올바르게 입력해주세요.')
+      return
+    }
+
+    const scheduledIso = fromDateTimeLocalToISO(form.scheduled_at)
+    const endIso = fromDateTimeLocalToISO(form.end_at)
+
+    if (!scheduledIso) {
+      toast.error('출발 일시 형식이 올바르지 않습니다.')
+      return
+    }
+
+    if (form.end_at && !endIso) {
+      toast.error('복귀 일시 형식이 올바르지 않습니다.')
+      return
+    }
+
+    if (endIso && new Date(endIso).getTime() < new Date(scheduledIso).getTime()) {
+      toast.error('복귀 일시가 출발 일시보다 이전입니다. 시간을 확인해주세요.')
       return
     }
 
@@ -67,8 +103,9 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          scheduled_at: scheduledIso,
+          end_at: endIso,
           project_id: form.project_id || null,
-          end_at: form.end_at || null,
         }),
       })
 
@@ -88,7 +125,7 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 max-w-2xl">
       <div className="space-y-2">
         <Label htmlFor="trip-title">출장 제목 *</Label>
         <Input
@@ -163,9 +200,9 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
           <Input
             id="trip-start"
             type="datetime-local"
+            step={60}
             value={form.scheduled_at}
-            onChange={(e) => handleChange('scheduled_at', e.target.value)}
-            required
+            onChange={(e) => handleDateTimeChange('scheduled_at', e.target.value)}
           />
         </div>
         <div className="space-y-2">
@@ -173,8 +210,9 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
           <Input
             id="trip-end"
             type="datetime-local"
+            step={60}
             value={form.end_at}
-            onChange={(e) => handleChange('end_at', e.target.value)}
+            onChange={(e) => handleDateTimeChange('end_at', e.target.value)}
           />
         </div>
       </div>
