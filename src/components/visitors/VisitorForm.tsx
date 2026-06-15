@@ -25,10 +25,12 @@ import {
 import { VISITOR_PURPOSES } from '@/constants'
 import { toast } from 'sonner'
 import TagInput from '@/components/ui/TagInput'
+import DateTimeInput from '@/components/ui/DateTimeInput'
 import ProjectSelect from '@/components/projects/ProjectSelect'
 import { userSelectItems } from '@/lib/select-items'
 import {
-  normalizeDateTimeLocalInput,
+  fromDateTimeLocalToISO,
+  getDateTimeValidationError,
   toDateTimeLocalValue,
 } from '@/lib/datetime-local'
 import type { Visitor, User, VisitorPurpose } from '@/types'
@@ -71,6 +73,7 @@ export default function VisitorForm({
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([])
   const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const hostItems = userSelectItems(hosts)
   const purposeItems = Object.entries(VISITOR_PURPOSES).map(([value, label]) => ({
     value,
@@ -119,7 +122,9 @@ export default function VisitorForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          scheduled_at: form.scheduled_at || null,
+          scheduled_at: form.scheduled_at.trim()
+            ? fromDateTimeLocalToISO(form.scheduled_at)
+            : null,
           project_id: form.project_id || null,
         }),
       })
@@ -140,10 +145,24 @@ export default function VisitorForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const errors: Record<string, string> = {}
+
     if (!form.name.trim()) {
-      toast.error('이름을 입력해주세요.')
+      errors.name = '이름을 입력해주세요.'
+    }
+
+    if (form.scheduled_at.trim()) {
+      const scheduledError = getDateTimeValidationError(form.scheduled_at, '방문 예정 시간')
+      if (scheduledError) errors.scheduled_at = scheduledError
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      toast.error('입력 내용을 확인해주세요.')
       return
     }
+
+    setFieldErrors({})
 
     if (!isEdit && !skipDuplicateCheck) {
       const params = new URLSearchParams({
@@ -180,8 +199,11 @@ export default function VisitorForm({
             value={form.name}
             onChange={(e) => handleChange('name', e.target.value)}
             placeholder="홍길동"
-            required
+            aria-invalid={fieldErrors.name ? true : undefined}
           />
+          {fieldErrors.name && (
+            <p className="text-xs text-destructive" role="alert">{fieldErrors.name}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="company">회사</Label>
@@ -261,16 +283,13 @@ export default function VisitorForm({
         onChange={(id) => handleChange('project_id', id)}
       />
 
-      <div className="space-y-2">
-        <Label htmlFor="scheduled_at">방문 예정 시간</Label>
-        <Input
-          id="scheduled_at"
-          type="datetime-local"
-          step={60}
-          value={form.scheduled_at}
-          onChange={(e) => handleChange('scheduled_at', normalizeDateTimeLocalInput(e.target.value))}
-        />
-      </div>
+      <DateTimeInput
+        id="scheduled_at"
+        label="방문 예정 시간"
+        value={form.scheduled_at}
+        onChange={(v) => handleChange('scheduled_at', v)}
+        error={fieldErrors.scheduled_at}
+      />
 
       <div className="space-y-2">
         <Label htmlFor="tags">태그</Label>

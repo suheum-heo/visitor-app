@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import DateTimeInput from '@/components/ui/DateTimeInput'
 import {
   Select,
   SelectContent,
@@ -16,7 +17,8 @@ import { toast } from 'sonner'
 import ProjectSelect from '@/components/projects/ProjectSelect'
 import { visitorSelectItems } from '@/lib/select-items'
 import {
-  normalizeDateTimeLocalInput,
+  fromDateTimeLocalToISO,
+  getDateTimeValidationError,
   nowDateTimeLocalValue,
 } from '@/lib/datetime-local'
 import { ACCESS_RECORD_CATEGORIES } from '@/constants'
@@ -39,6 +41,7 @@ interface AccessRecordFormProps {
 
 export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFormProps) {
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const visitorItems = visitorSelectItems(visitors)
   const [form, setForm] = useState({
     record_category: 'person' as AccessRecordCategory,
@@ -71,11 +74,24 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const errors: Record<string, string> = {}
     const resolvedName = form.name.trim() || form.vehicle_number.trim()
+
     if (!resolvedName) {
-      toast.error(isVehicle ? '차량번호 또는 이름을 입력하세요.' : '이름은 필수입니다.')
+      errors.name = isVehicle ? '차량번호 또는 이름을 입력해주세요.' : '이름을 입력해주세요.'
+    }
+
+    const recordedError = getDateTimeValidationError(form.recorded_at, '기록 시간')
+    if (recordedError) errors.recorded_at = recordedError
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      toast.error('입력 내용을 확인해주세요.')
       return
     }
+
+    setFieldErrors({})
+    const recordedIso = fromDateTimeLocalToISO(form.recorded_at)!
 
     setLoading(true)
     try {
@@ -88,6 +104,7 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
           visitor_id: form.visitor_id || null,
           project_id: form.project_id || null,
           vehicle_number: form.vehicle_number.trim() || null,
+          recorded_at: recordedIso,
         }),
       })
 
@@ -177,8 +194,11 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
             id="ar-name"
             value={form.name}
             onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            required={!isVehicle}
+            aria-invalid={fieldErrors.name ? true : undefined}
           />
+          {fieldErrors.name && (
+            <p className="text-xs text-destructive" role="alert">{fieldErrors.name}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="ar-company">회사</Label>
@@ -212,16 +232,14 @@ export default function AccessRecordForm({ visitors, onCreated }: AccessRecordFo
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="ar-time">기록 시간</Label>
-          <Input
-            id="ar-time"
-            type="datetime-local"
-            step={60}
-            value={form.recorded_at}
-            onChange={(e) => setForm((p) => ({ ...p, recorded_at: normalizeDateTimeLocalInput(e.target.value) }))}
-          />
-        </div>
+        <DateTimeInput
+          id="ar-time"
+          label="기록 시간"
+          value={form.recorded_at}
+          onChange={(v) => setForm((p) => ({ ...p, recorded_at: v }))}
+          required
+          error={fieldErrors.recorded_at}
+        />
       </div>
 
       <div className="space-y-2">

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import DateTimeInput from '@/components/ui/DateTimeInput'
 import {
   Select,
   SelectContent,
@@ -19,8 +20,7 @@ import ProjectSelect from '@/components/projects/ProjectSelect'
 import { userSelectItems } from '@/lib/select-items'
 import {
   fromDateTimeLocalToISO,
-  isValidDateTimeLocalInput,
-  normalizeDateTimeLocalInput,
+  getDateTimeValidationError,
   toDateTimeLocalValue,
 } from '@/lib/datetime-local'
 import type { BusinessTrip, User } from '@/types'
@@ -35,6 +35,7 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
   const router = useRouter()
   const isEdit = !!trip
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const employeeItems = userSelectItems(employees)
 
   const [form, setForm] = useState({
@@ -52,43 +53,44 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
 
   function handleChange(field: string, value: string | null) {
     setForm((prev) => ({ ...prev, [field]: value ?? '' }))
-  }
-
-  function handleDateTimeChange(field: 'scheduled_at' | 'end_at', raw: string) {
-    setForm((prev) => ({ ...prev, [field]: normalizeDateTimeLocalInput(raw) }))
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        delete next[field]
+        return next
+      })
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const errors: Record<string, string> = {}
+
     if (!form.title.trim()) {
-      toast.error('제목을 입력해주세요.')
+      errors.title = '출장 제목을 입력해주세요.'
+    }
+
+    const scheduledError = getDateTimeValidationError(form.scheduled_at, '출발 일시')
+    if (scheduledError) errors.scheduled_at = scheduledError
+
+    if (form.end_at.trim()) {
+      const endError = getDateTimeValidationError(form.end_at, '복귀 일시')
+      if (endError) errors.end_at = endError
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      toast.error('입력 내용을 확인해주세요.')
       return
     }
 
-    if (!form.scheduled_at || !isValidDateTimeLocalInput(form.scheduled_at)) {
-      toast.error('출발 일시를 올바르게 입력해주세요.')
-      return
-    }
+    setFieldErrors({})
 
-    if (form.end_at && !isValidDateTimeLocalInput(form.end_at)) {
-      toast.error('복귀 일시를 올바르게 입력해주세요.')
-      return
-    }
-
-    const scheduledIso = fromDateTimeLocalToISO(form.scheduled_at)
-    const endIso = fromDateTimeLocalToISO(form.end_at)
-
-    if (!scheduledIso) {
-      toast.error('출발 일시 형식이 올바르지 않습니다.')
-      return
-    }
-
-    if (form.end_at && !endIso) {
-      toast.error('복귀 일시 형식이 올바르지 않습니다.')
-      return
-    }
+    const scheduledIso = fromDateTimeLocalToISO(form.scheduled_at)!
+    const endIso = form.end_at.trim() ? fromDateTimeLocalToISO(form.end_at) : null
 
     if (endIso && new Date(endIso).getTime() < new Date(scheduledIso).getTime()) {
+      setFieldErrors({ end_at: '복귀 일시가 출발 일시보다 이전입니다.' })
       toast.error('복귀 일시가 출발 일시보다 이전입니다. 시간을 확인해주세요.')
       return
     }
@@ -133,8 +135,11 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
           value={form.title}
           onChange={(e) => handleChange('title', e.target.value)}
           placeholder="삼성전자 기술 협의"
-          required
+          aria-invalid={fieldErrors.title ? true : undefined}
         />
+        {fieldErrors.title && (
+          <p className="text-xs text-destructive" role="alert">{fieldErrors.title}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -195,26 +200,21 @@ export default function BusinessTripForm({ trip, employees, currentUserId }: Bus
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="trip-start">출발 일시 *</Label>
-          <Input
-            id="trip-start"
-            type="datetime-local"
-            step={60}
-            value={form.scheduled_at}
-            onChange={(e) => handleDateTimeChange('scheduled_at', e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="trip-end">복귀 일시</Label>
-          <Input
-            id="trip-end"
-            type="datetime-local"
-            step={60}
-            value={form.end_at}
-            onChange={(e) => handleDateTimeChange('end_at', e.target.value)}
-          />
-        </div>
+        <DateTimeInput
+          id="trip-start"
+          label="출발 일시"
+          value={form.scheduled_at}
+          onChange={(v) => handleChange('scheduled_at', v)}
+          required
+          error={fieldErrors.scheduled_at}
+        />
+        <DateTimeInput
+          id="trip-end"
+          label="복귀 일시"
+          value={form.end_at}
+          onChange={(v) => handleChange('end_at', v)}
+          error={fieldErrors.end_at}
+        />
       </div>
 
       <div className="space-y-2">

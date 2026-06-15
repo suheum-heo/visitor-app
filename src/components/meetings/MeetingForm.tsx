@@ -15,10 +15,15 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import TagInput from '@/components/ui/TagInput'
+import DateTimeInput from '@/components/ui/DateTimeInput'
 import { userSelectItems, visitorSelectItems } from '@/lib/select-items'
 import { MEETING_TYPES } from '@/constants'
 import ProjectSelect from '@/components/projects/ProjectSelect'
-import { normalizeDateTimeLocalInput, toDateTimeLocalValue } from '@/lib/datetime-local'
+import {
+  fromDateTimeLocalToISO,
+  getDateTimeValidationError,
+  toDateTimeLocalValue,
+} from '@/lib/datetime-local'
 import type { Meeting, User, Visitor, MeetingType } from '@/types'
 
 interface MeetingFormProps {
@@ -33,6 +38,7 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
   const isEdit = !!meeting
 
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const hostItems = userSelectItems(hosts)
   const visitorItems = visitorSelectItems(visitors)
   const meetingTypeItems = Object.entries(MEETING_TYPES).map(([value, label]) => ({
@@ -64,10 +70,28 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim() || !form.scheduled_at) {
-      toast.error('제목과 예정 시간은 필수입니다.')
+    const errors: Record<string, string> = {}
+
+    if (!form.title.trim()) {
+      errors.title = '미팅 제목을 입력해주세요.'
+    }
+
+    const scheduledError = getDateTimeValidationError(form.scheduled_at, '예정 시간')
+    if (scheduledError) errors.scheduled_at = scheduledError
+
+    const duration = parseInt(form.duration_minutes, 10)
+    if (!duration || duration < 15) {
+      errors.duration_minutes = '소요 시간은 15분 이상으로 입력해주세요.'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      toast.error('입력 내용을 확인해주세요.')
       return
     }
+
+    setFieldErrors({})
+    const scheduledIso = fromDateTimeLocalToISO(form.scheduled_at)!
 
     setLoading(true)
     try {
@@ -79,10 +103,11 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          scheduled_at: scheduledIso,
           visitor_id: form.visitor_id || null,
           project_id: form.project_id || null,
           zoom_link: form.zoom_link.trim() || null,
-          duration_minutes: parseInt(form.duration_minutes),
+          duration_minutes: duration,
         }),
       })
 
@@ -109,8 +134,11 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
           value={form.title}
           onChange={(e) => handleChange('title', e.target.value)}
           placeholder="파트너십 논의"
-          required
+          aria-invalid={fieldErrors.title ? true : undefined}
         />
+        {fieldErrors.title && (
+          <p className="text-xs text-destructive" role="alert">{fieldErrors.title}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -191,27 +219,26 @@ export default function MeetingForm({ meeting, hosts, visitors, currentUserId }:
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="scheduled_at">예정 시간 *</Label>
-          <Input
-            id="scheduled_at"
-            type="datetime-local"
-            step={60}
-            value={form.scheduled_at}
-            onChange={(e) => handleChange('scheduled_at', normalizeDateTimeLocalInput(e.target.value))}
-            required
-          />
-        </div>
+        <DateTimeInput
+          id="scheduled_at"
+          label="예정 시간"
+          value={form.scheduled_at}
+          onChange={(v) => handleChange('scheduled_at', v)}
+          required
+          error={fieldErrors.scheduled_at}
+        />
         <div className="space-y-2">
           <Label htmlFor="duration">소요 시간 (분)</Label>
           <Input
             id="duration"
             type="number"
-            min="15"
-            step="15"
             value={form.duration_minutes}
             onChange={(e) => handleChange('duration_minutes', e.target.value)}
+            aria-invalid={fieldErrors.duration_minutes ? true : undefined}
           />
+          {fieldErrors.duration_minutes && (
+            <p className="text-xs text-destructive" role="alert">{fieldErrors.duration_minutes}</p>
+          )}
         </div>
       </div>
 
